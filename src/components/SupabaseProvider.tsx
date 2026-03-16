@@ -61,26 +61,21 @@ export default function SupabaseProvider({ children }: { children: ReactNode }) 
   };
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchProfile(session.user.id);
-      }
-      setLoading(false);
-    });
+    let active = true;
 
     // Listen for auth changes
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!active) return;
+
       setSession(session);
       setUser(session?.user ?? null);
+
       if (session?.user) {
-        const profile = await fetchProfile(session.user.id);
+        const currentProfile = await fetchProfile(session.user.id);
         // Auto-create user row if it doesn't exist (covers all auth methods)
-        if (!profile && (_event === "SIGNED_IN")) {
+        if (!currentProfile && (_event === "SIGNED_IN" || _event === "INITIAL_SESSION")) {
           await supabase.from("users").upsert(
             {
               id: session.user.id,
@@ -101,7 +96,18 @@ export default function SupabaseProvider({ children }: { children: ReactNode }) 
       setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    // Make sure initial loading resolves if there is no session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!active) return;
+      if (!session) {
+        setLoading(false);
+      }
+    });
+
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   return (

@@ -60,8 +60,13 @@ export default function ProfilePage() {
 
   const handleLogout = async () => {
     setLoggingOut(true);
-    await supabase.auth.signOut();
-    router.push("/login");
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      // ignore
+    }
+    // Hard redirect to clear all states
+    window.location.href = "/login";
   };
 
   const loadRazorpayScript = (): Promise<boolean> => {
@@ -161,6 +166,22 @@ export default function ProfilePage() {
     }
   }, [user, profile, router, refreshProfile]);
 
+  const handleShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: "MH_Bharti AI",
+          text: "महाराष्ट्राचं स्वतःचं Exam Prep AI! 🚀",
+          url: window.location.origin,
+        });
+      } catch (err) {
+        console.log("Error sharing:", err);
+      }
+    } else {
+      alert("तुमच्या ब्राउझरमध्ये शेअर करण्याची सुविधा उपलब्ध नाही. (Link: " + window.location.origin + ")");
+    }
+  };
+
   const isPremium = profile?.plan === "premium";
 
   const menuItems = [
@@ -173,12 +194,13 @@ export default function ProfilePage() {
           sublabel: isPremium ? "Premium Plan ✨" : "Free Plan",
           badge: isPremium ? undefined : "अपग्रेड करा",
           badgeColor: "text-saffron bg-saffron/10",
-          onClick: isPremium ? undefined : handlePremiumUpgrade,
+          onClick: isPremium ? () => alert("तुमचा Premium প্লॅन सक्रिय आहे!") : handlePremiumUpgrade,
         },
         {
           icon: Bell,
           label: "सूचना",
           sublabel: "अभ्यासाचे रिमाइंडर",
+          onClick: () => alert("सूचना चालू केल्या आहेत!"),
         },
         {
           icon: Shield,
@@ -194,16 +216,19 @@ export default function ProfilePage() {
           icon: Moon,
           label: "डार्क मोड",
           sublabel: "चालू आहे",
+          onClick: () => router.push("/settings"),
         },
         {
           icon: Globe,
           label: "भाषा",
           sublabel: "मराठी",
+          onClick: () => alert("सध्या फक्त 'मराठी' भाषा उपलब्ध आहे. (Settings मधून बदल करता येईल)"),
         },
         {
           icon: Settings,
           label: "सेटिंग्ज",
           sublabel: "अ‍ॅप कॉन्फिगरेशन",
+          onClick: () => router.push("/settings"),
         },
       ],
     },
@@ -214,16 +239,19 @@ export default function ProfilePage() {
           icon: Share2,
           label: "शेअर करा",
           sublabel: "मित्रांना सांगा",
+          onClick: handleShare,
         },
         {
           icon: Star,
           label: "रेट करा",
           sublabel: "Play Store वर रेट द्या",
+          onClick: () => alert("लवकरच येत आहे!"),
         },
         {
           icon: HelpCircle,
           label: "मदत",
           sublabel: "FAQ आणि सपोर्ट",
+          onClick: () => alert("वापरकर्ता मदतीसाठी support@mhbhartiai.com वर संपर्क साधा"),
         },
       ],
     },
@@ -234,9 +262,9 @@ export default function ProfilePage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <h1 className="text-lg font-bold text-white">प्रोफाइल</h1>
-        <button className="w-9 h-9 rounded-xl glass flex items-center justify-center">
+        <Link href="/settings" className="w-9 h-9 rounded-xl glass flex items-center justify-center card-hover">
           <Settings size={16} className="text-gray-400" />
-        </button>
+        </Link>
       </div>
 
       {/* Payment Success Banner */}
