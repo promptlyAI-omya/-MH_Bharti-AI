@@ -37,9 +37,17 @@ function CallbackHandler() {
       }
 
       try {
-        // Exchange code for session (browser has PKCE verifier in localStorage)
-        const { data, error: sessionError } =
-          await supabase.auth.exchangeCodeForSession(code);
+        // Add timeout to prevent infinite loading
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("Login timeout — 15 सेकंदात response आला नाही. कृपया पुन्हा login करा.")), 15000)
+        );
+
+        const exchangePromise = supabase.auth.exchangeCodeForSession(code);
+
+        const { data, error: sessionError } = await Promise.race([
+          exchangePromise,
+          timeoutPromise,
+        ]);
 
         if (sessionError) {
           console.error("Session exchange error:", sessionError);
@@ -84,7 +92,7 @@ function CallbackHandler() {
         console.error("Callback error:", err);
         setErrorMsg(
           err instanceof Error
-            ? `Error: ${err.message}`
+            ? err.message
             : "Something went wrong. Please try again."
         );
       }
