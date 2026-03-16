@@ -1,0 +1,28 @@
+{
+  "name": "MH_Bharti AI",
+  "short_name": "MH Bharti",
+  "description": "महाराष्ट्राचं स्वतःचं Exam Prep AI - Police Bharti, MPSC, Talathi, Gramsevak",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0F0F0F",
+  "theme_color": "#FF6B00",
+  "orientation": "portrait",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["education"],
+  "lang": "mr",
+  "dir": "ltr"
+}
