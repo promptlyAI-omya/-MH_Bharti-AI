@@ -80,7 +80,7 @@ export default function SupabaseProvider({ children }: { children: ReactNode }) 
       if (session?.user) {
         const profile = await fetchProfile(session.user.id);
         // Auto-create user row if it doesn't exist (covers all auth methods)
-        if (!profile && _event === "SIGNED_IN") {
+        if (!profile && (_event === "SIGNED_IN")) {
           await supabase.from("users").upsert(
             {
               id: session.user.id,

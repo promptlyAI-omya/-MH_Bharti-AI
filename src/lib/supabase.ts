@@ -4,9 +4,10 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
 // Browser client — used in components and client-side code
+// Using 'implicit' flow for client-side SPA (no server-side callback needed)
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    flowType: 'pkce',
+    flowType: 'implicit',
   },
 });
 
@@ -24,4 +25,3 @@ export function createServerClient() {
     }
   );
 }
-
