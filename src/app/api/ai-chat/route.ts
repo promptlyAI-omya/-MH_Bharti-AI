@@ -3,7 +3,7 @@ import { createServerClient } from "@/lib/supabase";
 import Groq from "groq-sdk";
 import crypto from "crypto";
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY || '' });
 
 function hashQuestion(text: string): string {
   return crypto.createHash("md5").update(text.trim().toLowerCase()).digest("hex");
