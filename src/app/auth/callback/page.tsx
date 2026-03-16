@@ -14,91 +14,75 @@ function CallbackHandler() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    const handleCallback = async () => {
-      const code = searchParams.get("code");
-      const error = searchParams.get("error");
-      const errorDescription = searchParams.get("error_description");
+    const error = searchParams.get("error");
+    const errorDescription = searchParams.get("error_description");
 
-      if (error) {
-        setErrorMsg(errorDescription || error || "Authentication failed");
-        return;
-      }
+    if (error) {
+      setErrorMsg(errorDescription || error || "Authentication failed");
+      return;
+    }
 
-      if (!code) {
-        // No code in URL — check if user already has a session
-        // (Supabase may have already handled the callback via hash fragment)
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
+    // Listen for auth state change — Supabase SDK automatically
+    // handles the code exchange from the URL
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (event === "SIGNED_IN" && session?.user) {
+          setStatus("Setting up profile...");
+
+          // Auto-create user profile if it doesn't exist
+          try {
+            const { data: existingUser } = await supabase
+              .from("users")
+              .select("id")
+              .eq("id", session.user.id)
+              .single();
+
+            if (!existingUser) {
+              await supabase.from("users").upsert(
+                {
+                  id: session.user.id,
+                  name:
+                    session.user.user_metadata?.full_name ||
+                    session.user.user_metadata?.name ||
+                    null,
+                  phone: session.user.phone || null,
+                  plan: "free",
+                  ai_credits: 5,
+                  daily_question_count: 0,
+                  streak_count: 0,
+                },
+                { onConflict: "id" }
+              );
+            }
+          } catch (err) {
+            console.error("Profile setup error:", err);
+          }
+
+          // Redirect to home
           router.replace("/");
           return;
         }
-        setErrorMsg("No authentication code found. Please try logging in again.");
-        return;
       }
+    );
 
-      try {
-        // Add timeout to prevent infinite loading
-        const timeoutPromise = new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error("Login timeout — 15 सेकंदात response आला नाही. कृपया पुन्हा login करा.")), 15000)
-        );
-
-        const exchangePromise = supabase.auth.exchangeCodeForSession(code);
-
-        const { data, error: sessionError } = await Promise.race([
-          exchangePromise,
-          timeoutPromise,
-        ]);
-
-        if (sessionError) {
-          console.error("Session exchange error:", sessionError);
-          setErrorMsg(`Login failed: ${sessionError.message}`);
-          return;
-        }
-
-        if (!data.user) {
-          setErrorMsg("Login failed: No user data received.");
-          return;
-        }
-
-        // Auto-create user profile if it doesn't exist
-        setStatus("Setting up profile...");
-        const { data: existingUser } = await supabase
-          .from("users")
-          .select("id")
-          .eq("id", data.user.id)
-          .single();
-
-        if (!existingUser) {
-          await supabase.from("users").upsert(
-            {
-              id: data.user.id,
-              name:
-                data.user.user_metadata?.full_name ||
-                data.user.user_metadata?.name ||
-                null,
-              phone: data.user.phone || null,
-              plan: "free",
-              ai_credits: 5,
-              daily_question_count: 0,
-              streak_count: 0,
-            },
-            { onConflict: "id" }
-          );
-        }
-
-        // Redirect to home
+    // Also check if session already exists (in case event already fired)
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
         router.replace("/");
-      } catch (err) {
-        console.error("Callback error:", err);
-        setErrorMsg(
-          err instanceof Error
-            ? err.message
-            : "Something went wrong. Please try again."
-        );
       }
-    };
+    });
 
-    handleCallback();
+    // Timeout — if nothing happens in 12 seconds, show error
+    const timeout = setTimeout(() => {
+      setErrorMsg(
+        "Login timeout — कृपया पुन्हा login करा. तुमचे internet connection तपासा."
+      );
+    }, 12000);
+
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(timeout);
+    };
   }, [router, searchParams]);
 
   // Error state
@@ -147,4 +131,3 @@ export default function AuthCallbackPage() {
     </Suspense>
   );
 }
-
