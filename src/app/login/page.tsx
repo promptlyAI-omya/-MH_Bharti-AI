@@ -41,6 +41,24 @@ function LoginContent() {
   );
   const [magicLinkSent, setMagicLinkSent] = useState(false);
 
+  const handleResendConfirm = async () => {
+    setError("");
+    setLoading(true);
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email: email.trim(),
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+    if (error) {
+       setError(error.message);
+    } else {
+       setError("Confirmation email पुन्हा पाठवला आहे. कृपया तपासा.");
+    }
+    setLoading(false);
+  };
+
   // ── Google OAuth ──
   const handleGoogleLogin = async () => {
     setError("");
@@ -103,7 +121,7 @@ function LoginContent() {
           await supabase.from("users").upsert(
             {
               id: data.user.id,
-              name: null,
+              name: data.user.user_metadata?.full_name || data.user.user_metadata?.name || data.user.email?.split("@")[0] || null,
               plan: "free",
               ai_credits: 5,
               daily_question_count: 0,
@@ -121,7 +139,11 @@ function LoginContent() {
         });
 
         if (error) {
-          setError("Email किंवा Password चुकीचे आहे");
+          if (error.message.includes("Email not confirmed")) {
+            setError("कृपया तुमचा email confirm करा");
+          } else {
+            setError("Email किंवा Password चुकीचे आहे");
+          }
         } else {
           router.push("/");
           router.refresh();
@@ -350,7 +372,20 @@ function LoginContent() {
                 </div>
               )}
 
-              {error && <p className="text-xs text-red-400 mb-3">{error}</p>}
+              {error && (
+                <div className="mb-3">
+                  <p className="text-xs text-red-400">{error}</p>
+                  {error === "कृपया तुमचा email confirm करा" && (
+                    <button
+                      type="button"
+                      onClick={handleResendConfirm}
+                      className="text-xs text-saffron hover:underline mt-1 block"
+                    >
+                       पुन्हा confirmation email पाठवा
+                    </button>
+                  )}
+                </div>
+              )}
 
               {/* Submit Button */}
               <button

@@ -62,11 +62,16 @@ export default function ProfilePage() {
     setLoggingOut(true);
     try {
       await supabase.auth.signOut();
-    } catch {
-      // ignore
+    } catch (err) {
+      console.error("Logout Error:", err);
     }
-    // Hard redirect to clear all states
-    window.location.href = "/login";
+    
+    // Clear all client-side storage
+    localStorage.clear();
+    sessionStorage.clear();
+    
+    router.push("/login");
+    router.refresh();
   };
 
   const loadRazorpayScript = (): Promise<boolean> => {
@@ -86,6 +91,12 @@ export default function ProfilePage() {
   const handlePremiumUpgrade = useCallback(async () => {
     if (!user) {
       router.push("/login");
+      return;
+    }
+
+    const rzpKey = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
+    if (!rzpKey) {
+      alert("पेमेंट सेटअप होत आहे, कृपया थोडा वेळ थांबा");
       return;
     }
 
@@ -144,6 +155,8 @@ export default function ProfilePage() {
             alert("Verification error. मदतीसाठी संपर्क करा.");
           }
           setPaymentLoading(false);
+          document.body.style.overflow = '';
+          document.body.style.position = '';
         },
         prefill: {
           contact: profile?.phone || "",
@@ -154,6 +167,8 @@ export default function ProfilePage() {
         modal: {
           ondismiss: () => {
             setPaymentLoading(false);
+            document.body.style.overflow = '';
+            document.body.style.position = '';
           },
         },
       };
@@ -163,6 +178,8 @@ export default function ProfilePage() {
     } catch {
       alert("Payment सुरू करता आली नाही. पुन्हा प्रयत्न करा.");
       setPaymentLoading(false);
+      document.body.style.overflow = '';
+      document.body.style.position = '';
     }
   }, [user, profile, router, refreshProfile]);
 

@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MH_Bharti AI Repo Summary</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 0.42in;
+    }
+
+    :root {
+      --ink: #162132;
+      --muted: #5b6472;
+      --line: #d6dce5;
+      --accent: #ef6b1f;
+      --accent-soft: #fff2e9;
+      --panel: #f7f9fc;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Arial, sans-serif;
+      color: var(--ink);
+      background: #ffffff;
+      line-height: 1.25;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    .page {
+      width: 100%;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: flex-start;
+      border-bottom: 2px solid var(--line);
+      padding-bottom: 12px;
+      margin-bottom: 12px;
+    }
+
+    .title {
+      font-size: 24px;
+      font-weight: 800;
+      letter-spacing: 0.2px;
+      margin: 0 0 4px;
+    }
+
+    .subtitle {
+      margin: 0;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .badge {
+      flex-shrink: 0;
+      background: var(--accent-soft);
+      color: var(--accent);
+      border: 1px solid #ffd9c5;
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-top: 2px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1.08fr 0.92fr;
+      gap: 12px;
+    }
+
+    .section {
+      margin-bottom: 10px;
+    }
+
+    .section h2 {
+      margin: 0 0 5px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--accent);
+    }
+
+    .section p {
+      margin: 0;
+      font-size: 11px;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid #e4e8ef;
+      border-radius: 10px;
+      padding: 9px 10px;
+    }
+
+    ul {
+      margin: 0;
+      padding-left: 15px;
+      font-size: 10.8px;
+    }
+
+    li {
+      margin: 0 0 4px;
+    }
+
+    li:last-child {
+      margin-bottom: 0;
+    }
+
+    .arch {
+      display: grid;
+      gap: 6px;
+      font-size: 10.6px;
+    }
+
+    .flow {
+      border-left: 3px solid var(--accent);
+      padding-left: 8px;
+    }
+
+    .mini {
+      font-size: 10px;
+      color: var(--muted);
+    }
+
+    .steps {
+      counter-reset: step;
+      display: grid;
+      gap: 5px;
+      font-size: 10.8px;
+    }
+
+    .step {
+      display: grid;
+      grid-template-columns: 18px 1fr;
+      gap: 7px;
+      align-items: start;
+    }
+
+    .num {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--ink);
+      color: #fff;
+      text-align: center;
+      font-size: 10px;
+      font-weight: 700;
+      line-height: 18px;
+    }
+
+    code {
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 9.8px;
+      background: #eef2f7;
+      padding: 1px 4px;
+      border-radius: 4px;
+    }
+
+    .footer {
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid var(--line);
+      font-size: 9.4px;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="header">
+      <div>
+        <h1 class="title">MH_Bharti AI</h1>
+        <p class="subtitle">One-page repo summary based only on files in this workspace.</p>
+      </div>
+      <div class="badge">Repo Evidence</div>
+    </div>
+
+    <div class="grid">
+      <div>
+        <div class="section panel">
+          <h2>What It Is</h2>
+          <p>MH_Bharti AI is a Next.js exam-prep web app for Maharashtra government exam aspirants. Repo evidence shows Marathi-first practice flows, mock tests, progress tracking, AI tutoring, Supabase-backed auth/data, and premium payment hooks.</p>
+        </div>
+
+        <div class="section panel">
+          <h2>Who It Is For</h2>
+          <p>Primary persona: Marathi-speaking learners preparing for Police Bharti, MPSC, Talathi, and Gramsevak exams.</p>
+        </div>
+
+        <div class="section panel">
+          <h2>What It Does</h2>
+          <ul>
+            <li>Shows exam and topic practice paths for four exam categories.</li>
+            <li>Fetches question sets by exam, topic, and difficulty through <code>/api/questions</code>.</li>
+            <li>Offers a mock-test catalog with free and premium-gated entries.</li>
+            <li>Stores results and computes progress stats, topic breakdowns, and streak-linked activity.</li>
+            <li>Provides Marathi AI chat powered by Groq with response caching and per-user credit limits.</li>
+            <li>Supports Supabase login via Google OAuth, email/password, and magic link.</li>
+            <li>Handles premium upgrade flow with Razorpay order creation and payment verification.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div>
+        <div class="section panel">
+          <h2>How It Works</h2>
+          <div class="arch">
+            <div><strong>Frontend:</strong> Next.js 14 App Router pages under <code>src/app</code> for home, practice, mock tests, AI chat, progress, profile, login, and settings.</div>
+            <div><strong>Client state:</strong> <code>SupabaseProvider</code> listens for auth changes, loads the current user row from <code>users</code>, and exposes profile/credits/plan to pages.</div>
+            <div><strong>APIs:</strong> Route handlers under <code>src/app/api</code> serve questions, store results, proxy AI chat, and manage Razorpay payment flows.</div>
+            <div><strong>Data:</strong> Supabase schema defines <code>users</code>, <code>questions</code>, <code>results</code>, <code>ai_cache</code>, and <code>subscriptions</code> with RLS policies.</div>
+            <div><strong>AI path:</strong> <code>/api/ai-chat</code> hashes the prompt, checks <code>ai_cache</code>, chooses a Groq model, stores cache hits, and decrements user credits.</div>
+            <div class="flow"><strong>Data flow:</strong> Browser UI -> Next.js route handlers -> Supabase tables; AI chat also calls Groq, and premium checkout also calls Razorpay before updating Supabase.</div>
+          </div>
+        </div>
+
+        <div class="section panel">
+          <h2>How To Run</h2>
+          <div class="steps">
+            <div class="step">
+              <div class="num">1</div>
+              <div>Install dependencies with <code>npm install</code>.</div>
+            </div>
+            <div class="step">
+              <div class="num">2</div>
+              <div>Create <code>.env.local</code> using <code>.env.example</code> and set Supabase, Razorpay, Groq, and <code>NEXT_PUBLIC_APP_URL</code>.</div>
+            </div>
+            <div class="step">
+              <div class="num">3</div>
+              <div>Start the app with <code>npm run dev</code>.</div>
+            </div>
+            <div class="step">
+              <div class="num">4</div>
+              <div>Open <code>http://localhost:3000</code>.</div>
+            </div>
+          </div>
+          <p class="mini" style="margin-top:7px;"><strong>Not found in repo:</strong> a documented command to apply <code>supabase/schema.sql</code> or seed question data for first-time setup.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      Evidence used: <code>package.json</code>, <code>.env.example</code>, <code>src/app/*</code>, <code>src/app/api/*</code>, <code>src/components/SupabaseProvider.tsx</code>, <code>src/lib/supabase.ts</code>, and <code>supabase/schema.sql</code>.
+    </div>
+  </div>
+</body>
+</html>

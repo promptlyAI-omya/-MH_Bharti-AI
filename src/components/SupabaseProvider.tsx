@@ -79,7 +79,7 @@ export default function SupabaseProvider({ children }: { children: ReactNode }) 
           await supabase.from("users").upsert(
             {
               id: session.user.id,
-              name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || null,
+              name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || session.user.email?.split("@")[0] || null,
               phone: session.user.phone || null,
               plan: "free",
               ai_credits: 5,

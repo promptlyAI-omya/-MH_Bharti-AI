@@ -150,7 +150,7 @@ export default function MockTestPage() {
             पोलीस भरती - Speed Test 🏃‍♂️
           </h3>
           <p className="text-[11px] text-white/60 mb-3">
-            30 प्रश्न • 20 मिनिटे • वेळेत सोडवा
+            100 प्रश्न • 90 मिनिटे • वेळेत सोडवा
           </p>
           <Link
             href="/mock-test/speed"
