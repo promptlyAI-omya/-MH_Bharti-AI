@@ -6,6 +6,7 @@ export async function POST(request: NextRequest) {
   const supabase = createServerClient();
 
   try {
+    const keySecret = process.env.RAZORPAY_KEY_SECRET;
     const body = await request.json();
     const {
       razorpay_order_id,
@@ -18,25 +19,30 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    // Verify signature
+    if (!keySecret) {
+      console.error("Missing RAZORPAY_KEY_SECRET for verification");
+      return NextResponse.json(
+        { error: "Payment verification is not configured" },
+        { status: 500 },
+      );
+    }
+
     const generatedSignature = crypto
-      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET || '')
+      .createHmac("sha256", keySecret)
       .update(`${razorpay_order_id}|${razorpay_payment_id}`)
       .digest("hex");
 
     if (generatedSignature !== razorpay_signature) {
       return NextResponse.json(
         { error: "Invalid payment signature" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    // Payment verified — update user to premium
     const now = new Date();
     const endDate = new Date(now);
-    endDate.setDate(endDate.getDate() + 30); // 30-day subscription
+    endDate.setDate(endDate.getDate() + 30);
 
-    // Create subscription record
     const { error: subError } = await supabase.from("subscriptions").insert({
       user_id,
       plan: "premium",
@@ -52,7 +58,6 @@ export async function POST(request: NextRequest) {
       console.error("Subscription insert error:", subError);
     }
 
-    // Update user plan + credits
     const { error: userError } = await supabase
       .from("users")
       .update({
@@ -65,22 +70,22 @@ export async function POST(request: NextRequest) {
       console.error("User update error:", userError);
       return NextResponse.json(
         { error: "Payment verified but profile update failed" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
     return NextResponse.json({
       success: true,
-      message: "Premium plan activated! 🎉",
+      message: "Premium plan activated!",
       plan: "premium",
       ai_credits: 50,
       expires: endDate.toISOString(),
     });
-  } catch (err: unknown) {
-    console.error("Payment verification error:", err);
+  } catch (error: unknown) {
+    console.error("Payment verification error:", error);
     return NextResponse.json(
       { error: "Payment verification failed" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
