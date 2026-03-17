@@ -6,6 +6,7 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import { ToastProvider } from "@/components/ToastProvider";
 import SupabaseProvider from "@/components/SupabaseProvider";
 import StickyAIChatButton from "@/components/StickyAIChatButton";
+import GlobalAICredits from "@/components/GlobalAICredits";
 import { RAZORPAY_CHECKOUT_SRC } from "@/lib/razorpay-client";
 
 export const metadata: Metadata = {
@@ -37,6 +38,7 @@ export default function RootLayout({
         <ToastProvider>
           <ThemeProvider>
             <SupabaseProvider>
+              <GlobalAICredits />
               <main className="min-h-screen pb-20">{children}</main>
               <StickyAIChatButton />
               <BottomNav />

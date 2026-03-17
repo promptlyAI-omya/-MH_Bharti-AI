@@ -17,9 +17,11 @@ import {
   Lightbulb,
   PenTool,
   MessageCircle,
+  Lock,
 } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/components/SupabaseProvider";
+import { createBrowserClient } from "@supabase/ssr";
 
 interface Question {
   id: string;
@@ -32,6 +34,7 @@ interface Question {
   trick_used?: string;
   question_purpose?: string;
   is_ai_variation?: boolean;
+  svg_visual?: string;
 }
 
 interface TopicContent {
@@ -51,7 +54,7 @@ type TabType = "learn" | "example" | "practice";
 export default function QuizPage() {
   const params = useParams();
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const exam = decodeURIComponent(params.exam as string);
   const topic = decodeURIComponent(params.topic as string);
 
@@ -69,6 +72,15 @@ export default function QuizPage() {
   const [loadingQuestions, setLoadingQuestions] = useState(true);
   const [errorQuestions, setErrorQuestions] = useState("");
   const [startTime] = useState(Date.now());
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [upgradeModalContent, setUpgradeModalContent] = useState({ title: "", desc: "", sub: "" });
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+
+  const AI_TOPICS = ["आकृती मोजणी", "संख्या मालिका", "सादृश्यता", "दिशा ज्ञान"];
+  const isAITopic = AI_TOPICS.includes(topic);
 
   const fetchTopicContent = useCallback(async () => {
     try {
@@ -85,22 +97,31 @@ export default function QuizPage() {
 
   const fetchQuestions = useCallback(async () => {
     try {
-      let url = `/api/questions?exam=${exam}&topic=${encodeURIComponent(topic)}&limit=10`;
-      
-      if (user) {
-        url += `&userId=${user.id}`;
+      let res;
+      if (isAITopic) {
+        res = await fetch("/api/generate-questions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ topic, difficulty: "मध्यम", count: 10, examType: exam })
+        });
       } else {
-        // Guest mode logic
-        const localHistoryStr = localStorage.getItem("guest_history") || "[]";
-        let localHistory = [];
-        try {
-          localHistory = JSON.parse(localHistoryStr);
-          const seenIds = localHistory.map((h: {question_id: string}) => h.question_id).join(",");
-          if (seenIds) url += `&seen_ids=${seenIds}`;
-        } catch {}
+        let url = `/api/questions?exam=${exam}&topic=${encodeURIComponent(topic)}&limit=10`;
+        
+        if (user) {
+          url += `&userId=${user.id}`;
+        } else {
+          // Guest mode logic
+          const localHistoryStr = localStorage.getItem("guest_history") || "[]";
+          let localHistory = [];
+          try {
+            localHistory = JSON.parse(localHistoryStr);
+            const seenIds = localHistory.map((h: {question_id: string}) => h.question_id).join(",");
+            if (seenIds) url += `&seen_ids=${seenIds}`;
+          } catch {}
+        }
+        res = await fetch(url);
       }
 
-      const res = await fetch(url);
       const data = await res.json();
       if (data.questions && data.questions.length > 0) {
         setQuestions(data.questions);
@@ -111,7 +132,7 @@ export default function QuizPage() {
       setErrorQuestions("प्रश्न लोड करताना त्रुटी आली");
     }
     setLoadingQuestions(false);
-  }, [exam, topic, user]);
+  }, [exam, topic, user, isAITopic]);
 
   useEffect(() => {
     fetchTopicContent();
@@ -197,18 +218,56 @@ export default function QuizPage() {
               is_mock_test: false,
             }),
           });
+
+          // If it's an AI Topic, add 15 points
+          if (isAITopic) {
+            const { data: userData } = await supabase.from('users').select('points').eq('id', user.id).single();
+            if (userData) {
+              await supabase.from('users').update({ points: (userData.points || 0) + 15 }).eq('id', user.id);
+            }
+          }
         } catch {
           // Silently fail
         }
       }
     }
-  }, [currentIndex, questions.length, score, user, exam, topic, startTime, selectedAnswer, currentQuestion]);
+  }, [currentIndex, questions.length, score, user, exam, topic, startTime, selectedAnswer, currentQuestion, isAITopic, supabase]);
 
-  const openAIChat = (customPrompt: string) => {
-    const encodedContext = encodeURIComponent(
-      `Context: ${topicContent?.concept_marathi || ''}\nTrick: ${topicContent?.trick_marathi || ''}\nQuestion: ${customPrompt}`
-    );
-    router.push(`/ai-chat?prefill=${encodeURIComponent(customPrompt)}&ctx=${encodedContext}`);
+  const openAIChat = async (customPrompt: string) => {
+    if (!user) {
+      router.push("/login");
+      return;
+    }
+
+    try {
+      const { data: userData } = await supabase
+        .from("users")
+        .select("ai_credits, plan")
+        .eq("id", user.id)
+        .single();
+      
+      if (!userData || userData.ai_credits <= 0) {
+        setUpgradeModalContent({
+          title: "AI मदत संपली! 😔",
+          desc: "आजचे AI credits संपले आहेत.",
+          sub: userData?.plan === "free" ? "Premium घ्या — रोज 30 AI मदत मिळेल!" : "उद्या पुन्हा मिळतील."
+        });
+        setShowUpgradeModal(true);
+        return;
+      }
+
+      await supabase
+        .from("users")
+        .update({ ai_credits: userData.ai_credits - 1 })
+        .eq("id", user.id);
+
+      const encodedContext = encodeURIComponent(
+        `Context: ${topicContent?.concept_marathi || ''}\nTrick: ${topicContent?.trick_marathi || ''}\nQuestion: ${customPrompt}`
+      );
+      router.push(`/ai-chat?prefill=${encodeURIComponent(customPrompt)}&ctx=${encodedContext}`);
+    } catch (error) {
+      console.error("AI check error", error);
+    }
   };
 
   const getOptionStyle = (optionKey: string) => {
@@ -337,10 +396,10 @@ export default function QuizPage() {
             {/* Ask AI Button */}
             <button
               onClick={() => openAIChat(`${topic} मला अजून विस्तृतपणे समजावून सांगा`)}
-              className="w-full mt-4 flex items-center justify-center gap-2 py-3.5 rounded-xl border border-saffron/30 text-saffron text-sm font-bold bg-dark-card hover:bg-saffron/10 transition-colors"
+              className="w-full mt-4 flex items-center justify-center gap-2 py-3.5 rounded-xl border border-saffron/30 text-saffron text-sm font-bold bg-dark-card hover:bg-saffron/10 transition-colors disabled:opacity-50"
             >
-              <MessageCircle size={18} />
-              AI ला अजून विचारा
+              {profile?.ai_credits === 0 ? <Lock size={18} /> : <MessageCircle size={18} />}
+              {profile?.ai_credits === 0 ? "AI Credits संपले" : `AI ला विचारा (${profile?.ai_credits || 0}/${profile?.plan === 'premium' ? 30 : 5})`}
             </button>
           </div>
         )}
@@ -577,19 +636,26 @@ export default function QuizPage() {
         <div className="flex items-center gap-2 mb-3">
           <span
             className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
-              currentQuestion?.difficulty === "easy"
+              currentQuestion?.difficulty === "सोपे"
                 ? "text-green-400 bg-green-400/10"
-                : currentQuestion?.difficulty === "hard"
+                : currentQuestion?.difficulty === "कठीण"
                 ? "text-red-400 bg-red-400/10"
                 : "text-saffron bg-saffron/10"
             }`}
           >
-            {currentQuestion?.difficulty === "easy" ? "सोपे" : currentQuestion?.difficulty === "hard" ? "कठीण" : "मध्यम"}
+            {currentQuestion?.difficulty === "सोपे" ? "सोपे" : currentQuestion?.difficulty === "कठीण" ? "कठीण" : "मध्यम"}
           </span>
         </div>
-        <p className="text-[15px] text-white leading-relaxed font-medium">
+        <p className="text-[15px] text-white leading-relaxed font-medium mb-3">
           {currentQuestion?.question_marathi}
         </p>
+        
+        {/* SVG Visual Logic for AI Generated questions */}
+        {currentQuestion?.svg_visual && (
+          <div className="bg-dark-bg rounded-xl p-3 mb-4 flex justify-center items-center">
+            <div dangerouslySetInnerHTML={{ __html: currentQuestion.svg_visual }} className="w-full max-w-[280px]" />
+          </div>
+        )}
       </div>
 
       <div className="space-y-2.5 mb-5">
@@ -658,9 +724,10 @@ export default function QuizPage() {
           <div className="flex gap-3">
             <button
                onClick={() => openAIChat(`मला हा प्रश्न समजला नाही. कृपया समजावून सांगा: ${currentQuestion.question_marathi}`)}
-               className="flex-1 py-3.5 rounded-xl border border-saffron/30 text-saffron text-sm font-bold bg-dark-card hover:bg-saffron/10 transition-colors flex items-center justify-center gap-2"
+               className="flex-1 py-3.5 rounded-xl border border-saffron/30 text-saffron text-sm font-bold bg-dark-card hover:bg-saffron/10 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
             >
-               <MessageCircle size={16} /> AI मदत
+               {profile?.ai_credits === 0 ? <Lock size={16} /> : <MessageCircle size={16} />}
+               {profile?.ai_credits === 0 ? "AI संपले" : `AI मदत (${profile?.ai_credits || 0})`}
             </button>
 
             <button
@@ -673,6 +740,29 @@ export default function QuizPage() {
                 <>निकाल <Trophy size={16} /></>
               )}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Upgrade Modal for AI Limits */}
+      {showUpgradeModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-dark-card border border-dark-border rounded-2xl w-full max-w-sm p-6 text-center shadow-2xl animate-scale-up">
+            <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertCircle size={32} className="text-red-500" />
+            </div>
+            <h2 className="text-xl font-bold text-white mb-2">{upgradeModalContent.title}</h2>
+            <p className="text-gray-300 mb-2">{upgradeModalContent.desc}</p>
+            <p className="text-saffron font-medium mb-6">{upgradeModalContent.sub}</p>
+            
+            <div className="space-y-3">
+              <button onClick={() => router.push("/profile")} className="w-full btn-primary py-3 flex items-center justify-center gap-2">
+                Premium घ्या 🚀
+              </button>
+              <button onClick={() => setShowUpgradeModal(false)} className="w-full bg-dark-bg border border-dark-border py-3 rounded-xl text-sm font-bold text-gray-400 hover:text-white transition-colors">
+                उद्या येईन
+              </button>
+            </div>
           </div>
         </div>
       )}
