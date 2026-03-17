@@ -7,12 +7,12 @@ export default function GlobalAICredits() {
   const { profile } = useAuth();
   if (!profile || profile.ai_credits === undefined) return null;
 
-  const total = profile.plan === "premium" ? 30 : 5;
+  const total = profile.plan === "premium" ? 50 : 10;
   const remaining = profile.ai_credits;
 
   let text = `${remaining}/${total} AI शिल्लक`;
   if (remaining === 1) text = "फक्त 1 AI मदत शिल्लक";
-  if (remaining === 0) text = "AI मदत संपली — उद्या 5 मिळतील";
+  if (remaining === 0) text = "AI मदत संपली — उद्या 10 मिळतील";
 
   return (
     <div className="fixed top-4 right-4 z-50 animate-fade-in pointer-events-none">

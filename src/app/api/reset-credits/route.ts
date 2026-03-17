@@ -17,13 +17,13 @@ export async function GET(request: Request) {
     // Reset free users
     await supabase
       .from("users")
-      .update({ ai_credits: 5 })
+      .update({ ai_credits: 10 })
       .eq("plan", "free");
 
     // Reset premium users
     await supabase
       .from("users")
-      .update({ ai_credits: 30 })
+      .update({ ai_credits: 50 })
       .eq("plan", "premium");
 
     return NextResponse.json({ success: true, message: "AI Credits reset successfully" });

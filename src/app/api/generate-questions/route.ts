@@ -37,13 +37,31 @@ const TOPIC_PROMPTS: Record<string, TopicInfo> = {
 
 export async function POST(req: NextRequest) {
   try {
-    const { topic, difficulty, count = 5, examType = "पोलीस भरती" } = await req.json();
+    const { userId, topic, difficulty, count = 5, examType = "पोलीस भरती" } = await req.json();
 
-    if (!topic || !difficulty) {
-      return NextResponse.json({ error: "Topic and difficulty required" }, { status: 400 });
+    if (!topic || !userId) {
+      return NextResponse.json({ error: "Topic and userId required" }, { status: 400 });
     }
 
     const supabase = createServerClient();
+
+    // 0. Verify user has enough AI credits
+    const { data: userData, error: userError } = await supabase
+      .from("users")
+      .select("ai_credits")
+      .eq("id", userId)
+      .single();
+
+    if (userError || !userData) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    if (userData.ai_credits <= 0) {
+      return NextResponse.json({ error: "Insufficient AI credits" }, { status: 403 });
+    }
+
+    // Adjust count based on available credits
+    const finalCount = Math.min(count, userData.ai_credits);
     
     // 1. Check existing questions in the database for this topic
     const { data: dbQuestions, error: dbError } = await supabase
@@ -62,15 +80,15 @@ export async function POST(req: NextRequest) {
     // Logic: 
     // If we have >= 1000 questions in DB, mix DB + newly generated.
     // If not, generate all requested count entirely new via AI.
-    let generateCount = count;
+    let generateCount = finalCount;
     let fallbackQuestions = [];
 
     if (existingCount >= 1000 && dbQuestions) {
-       // Free users (count=5): 3 DB + 2 AI
-       // Premium users (count=20): 15 DB + 5 AI
-       const aiCount = count === 20 ? 5 : 2;
+       // Premium users (count<=10): mostly DB + 2 AI
+       // Free users (count<=5): mostly DB + 1 AI
+       const aiCount = finalCount > 5 ? 2 : 1;
        generateCount = aiCount;
-       const dbPickCount = count - aiCount;
+       const dbPickCount = finalCount - aiCount;
        
        fallbackQuestions = shuffleAndPick(dbQuestions, dbPickCount);
     }
@@ -83,7 +101,9 @@ export async function POST(req: NextRequest) {
       prompt = `
       Generate exactly ${generateCount} valid, unique Maharashtra ${examType} exam questions for topic: ${topic}.
       Context: ${topicInfo.context}
-      Difficulty: ${difficulty}
+      Difficulty: EXTREMELY HARD (Advanced MPSC Level)
+
+      IMPORTANT: Do not generate easy 2nd or 3rd standard level questions. Make the logic convoluted, multi-step, and highly challenging to test top-tier candidates.
 
       Return ONLY a valid JSON array matching this exact structure structure:
       [
@@ -117,7 +137,9 @@ export async function POST(req: NextRequest) {
       prompt = `
       Generate exactly ${generateCount} valid, unique Maharashtra ${examType} exam questions for topic: ${topic}.
       Context: ${topicInfo.context}
-      Difficulty: ${difficulty}
+      Difficulty: EXTREMELY HARD (Advanced MPSC Level)
+
+      IMPORTANT: Do not generate easy 2nd or 3rd standard level questions. Make the logic convoluted, multi-step, and highly challenging to test top-tier candidates.
 
       Return ONLY a valid JSON array matching this exact structure:
       [
@@ -195,11 +217,20 @@ export async function POST(req: NextRequest) {
     }
 
     // Combine any DB random picks with the newly generated AI ones
-    const finalQuestions = [...fallbackQuestions, ...generatedQuestions];
+    const finalMixedQuestions = [...fallbackQuestions, ...generatedQuestions];
+    const pickedQuestions = shuffleAndPick(finalMixedQuestions, finalCount);
+
+    // 4. Deduct the exact number of fetched questions from user ai_credits
+    if (pickedQuestions.length > 0) {
+        await supabase
+          .from("users")
+          .update({ ai_credits: userData.ai_credits - pickedQuestions.length })
+          .eq("id", userId);
+    }
 
     // Shuffle once more to blend them seamlessly
     return NextResponse.json({ 
-      questions: shuffleAndPick(finalQuestions, count) 
+      questions: pickedQuestions 
     });
 
   } catch (error) {

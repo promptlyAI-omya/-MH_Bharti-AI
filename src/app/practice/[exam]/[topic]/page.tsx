@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/components/SupabaseProvider";
+import { useToast } from "@/components/ToastProvider";
 import { createBrowserClient } from "@supabase/ssr";
 
 interface Question {
@@ -35,6 +36,12 @@ interface Question {
   question_purpose?: string;
   is_ai_variation?: boolean;
   svg_visual?: string;
+}
+
+interface RazorpayResponse {
+  razorpay_payment_id: string;
+  razorpay_order_id: string;
+  razorpay_signature: string;
 }
 
 interface TopicContent {
@@ -54,7 +61,9 @@ type TabType = "learn" | "example" | "practice";
 export default function QuizPage() {
   const params = useParams();
   const router = useRouter();
-  const { user, profile, loading } = useAuth();
+  const { user, profile, loading, refreshProfile } = useAuth();
+  const { toast } = useToast();
+  const [isBuying, setIsBuying] = useState(false);
   const exam = decodeURIComponent(params.exam as string);
   const topic = decodeURIComponent(params.topic as string);
 
@@ -78,6 +87,84 @@ export default function QuizPage() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
+
+  const handleBuyCredits = async () => {
+    if (!user) {
+      router.push("/login");
+      return;
+    }
+    
+    setIsBuying(true);
+    try {
+      const { loadRazorpayScript } = await import("@/lib/razorpay-client");
+      const isLoaded = await loadRazorpayScript();
+      if (!isLoaded) {
+        toast("Payment gateway failed to load. Check your connection.");
+        setIsBuying(false);
+        return;
+      }
+
+      const res = await fetch("/api/payment/create-order-credits", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: user.id }),
+      });
+      const data = await res.json();
+      
+      if (!data.orderId) throw new Error("Could not construct payment order");
+
+      const options = {
+        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+        amount: data.amount,
+        currency: "INR",
+        name: "MH Bharti AI",
+        description: "111 AI Credits",
+        order_id: data.orderId,
+        handler: async (response: RazorpayResponse) => {
+          try {
+            const verifyRes = await fetch("/api/payment/verify-credits", {
+               method: "POST",
+               headers: { "Content-Type": "application/json" },
+               body: JSON.stringify({
+                  razorpay_order_id: response.razorpay_order_id,
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_signature: response.razorpay_signature,
+                  userId: user.id
+               })
+            });
+            const verifyData = await verifyRes.json();
+            if (verifyData.success) {
+               toast("111 AI Credits खरेदी यशस्वी! 🎉");
+               await refreshProfile();
+               setShowUpgradeModal(false);
+            } else {
+               toast("Payment failed. Contact support.");
+            }
+          } catch(err) {
+            console.error("Verification err:", err);
+            toast("Error verifying payment");
+          }
+        },
+        prefill: {
+          name: profile?.name || "",
+          email: user?.email || "",
+          contact: profile?.phone || ""
+        },
+        theme: {
+          color: "#FF6B00"
+        }
+      };
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const rzp = new (window as any).Razorpay(options);
+      rzp.open();
+    } catch (e) {
+      console.error(e);
+      toast("Something went wrong");
+    } finally {
+      setIsBuying(false);
+    }
+  };
 
   const isAITopic = ["आकृती मोजणी", "संख्या मालिका", "सादृश्यता", "दिशा ज्ञान"].includes(topic);
 
@@ -124,12 +211,12 @@ export default function QuizPage() {
       if (isAITopic) {
         if (!user) return; // Guests are blocked
         
-        const qCount = profile?.plan === "premium" ? 20 : 5;
+        const qCount = profile?.plan === "premium" ? 10 : 5;
 
         res = await fetch("/api/generate-questions", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ topic, difficulty: "मध्यम", count: qCount, examType: exam })
+          body: JSON.stringify({ userId: user.id, topic, difficulty: "मध्यम", count: qCount, examType: exam })
         });
       } else {
         let url = `/api/questions?exam=${exam}&topic=${encodeURIComponent(topic)}&limit=10`;
@@ -159,7 +246,7 @@ export default function QuizPage() {
       setErrorQuestions("प्रश्न लोड करताना त्रुटी आली");
     }
     setLoadingQuestions(false);
-  }, [exam, topic, user, isAITopic]);
+  }, [exam, topic, user, isAITopic, profile?.plan]);
 
   useEffect(() => {
     fetchTopicContent();
@@ -258,7 +345,7 @@ export default function QuizPage() {
         }
       }
     }
-  }, [currentIndex, questions.length, score, user, exam, topic, startTime, selectedAnswer, currentQuestion, isAITopic, supabase, profile?.plan]);
+  }, [currentIndex, questions.length, score, user, exam, topic, startTime, selectedAnswer, currentQuestion, isAITopic, supabase]);
 
   const openAIChat = async (customPrompt: string) => {
     if (!user) {
@@ -426,7 +513,7 @@ export default function QuizPage() {
               className="w-full mt-4 flex items-center justify-center gap-2 py-3.5 rounded-xl border border-saffron/30 text-saffron text-sm font-bold bg-dark-card hover:bg-saffron/10 transition-colors disabled:opacity-50"
             >
               {profile?.ai_credits === 0 ? <Lock size={18} /> : <MessageCircle size={18} />}
-              {profile?.ai_credits === 0 ? "AI Credits संपले" : `AI ला विचारा (${profile?.ai_credits || 0}/${profile?.plan === 'premium' ? 30 : 5})`}
+              {profile?.ai_credits === 0 ? "AI Credits संपले" : `AI ला विचारा (${profile?.ai_credits || 0}/${profile?.plan === 'premium' ? 50 : 10})`}
             </button>
           </div>
         )}
@@ -783,6 +870,14 @@ export default function QuizPage() {
             <p className="text-saffron font-medium mb-6">{upgradeModalContent.sub}</p>
             
             <div className="space-y-3">
+              <button 
+                onClick={handleBuyCredits} 
+                disabled={isBuying}
+                className="w-full bg-dark-bg border border-saffron/40 text-saffron py-3 rounded-xl text-sm font-bold hover:bg-saffron/10 transition-colors flex items-center justify-center gap-2"
+              >
+                {isBuying ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
+                ₹59 मध्ये 111 Credits खरेदी करा
+              </button>
               <button onClick={() => router.push("/profile")} className="w-full btn-primary py-3 flex items-center justify-center gap-2">
                 Premium घ्या 🚀
               </button>

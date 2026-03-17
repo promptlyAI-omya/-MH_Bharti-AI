@@ -82,7 +82,7 @@ export default function SupabaseProvider({ children }: { children: ReactNode }) 
               name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || session.user.email?.split("@")[0] || null,
               phone: session.user.phone || null,
               plan: "free",
-              ai_credits: 5,
+              ai_credits: 10,
               daily_question_count: 0,
               streak_count: 0,
             },
