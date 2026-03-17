@@ -11,7 +11,12 @@ function shuffleAndPick<T>(array: T[], count: number): T[] {
   return shuffled.slice(0, count);
 }
 
-const TOPIC_PROMPTS: Record<string, any> = {
+interface TopicInfo {
+  context: string;
+  isVisual: boolean;
+}
+
+const TOPIC_PROMPTS: Record<string, TopicInfo> = {
   "आकृती मोजणी": {
     context: "Figure Counting for Maharashtra Police Bharti and MPSC",
     isVisual: true,
@@ -145,7 +150,7 @@ export async function POST(req: NextRequest) {
     try {
       const cleanJson = responseText.replace(/```json/g, "").replace(/```/g, "").trim();
       generatedQuestions = JSON.parse(cleanJson);
-    } catch (parseError) {
+    } catch {
       console.error("Failed to parse Groq response:", responseText);
       return NextResponse.json({ error: "Failed to generate questions" }, { status: 500 });
     }
