@@ -67,7 +67,6 @@ export default function QuizPage() {
   
   const [loadingContent, setLoadingContent] = useState(true);
   const [loadingQuestions, setLoadingQuestions] = useState(true);
-  const [errorContent, setErrorContent] = useState("");
   const [errorQuestions, setErrorQuestions] = useState("");
   const [startTime] = useState(Date.now());
 
@@ -78,8 +77,8 @@ export default function QuizPage() {
       if (data.data) {
         setTopicContent(data.data);
       }
-    } catch {
-      setErrorContent("माहिती लोड करताना त्रुटी आली");
+    } catch (err) {
+      console.error("माहिती लोड करताना त्रुटी आली:", err);
     }
     setLoadingContent(false);
   }, [exam, topic]);
