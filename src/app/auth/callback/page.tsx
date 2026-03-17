@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/SupabaseProvider";
+import { supabase } from "@/lib/supabase";
 import { Loader2, AlertCircle } from "lucide-react";
 import Link from "next/link";
 
@@ -22,8 +23,23 @@ export default function AuthCallbackPage() {
 
   useEffect(() => {
     // If not loading and profile is ready, user is fully signed in and database is updated
-    if (!loading && user && profile) {
-      router.replace("/");
+    if (!loading && user) {
+      if (profile) {
+        router.replace("/");
+      } else {
+        // Fallback: If user is authenticated but profile is missing, create it explicitly
+        supabase.from("users").upsert(
+          {
+            id: user.id,
+            name: user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split("@")[0] || null,
+            phone: user.phone || null,
+            plan: "free",
+          },
+          { onConflict: "id", ignoreDuplicates: true }
+        ).then(() => {
+          router.replace("/");
+        });
+      }
     }
   }, [loading, user, profile, router]);
 

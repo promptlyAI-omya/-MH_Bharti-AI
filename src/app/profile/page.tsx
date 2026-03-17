@@ -19,8 +19,11 @@ import {
   Loader2,
   CheckCircle2,
   Zap,
+  Trophy,
+  Medal,
+  RotateCcw,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/components/SupabaseProvider";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
@@ -54,6 +57,52 @@ export default function ProfilePage() {
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [activeTab, setActiveTab] = useState<"profile" | "leaderboard">("profile");
+  const [leaderboard, setLeaderboard] = useState<{ id: string; name: string; leaderboard_points: number }[]>([]);
+  const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
+  const [attemptedProfileCreation, setAttemptedProfileCreation] = useState(false);
+
+  useEffect(() => {
+    if (user && !profile && !attemptedProfileCreation) {
+      setAttemptedProfileCreation(true);
+      // Fallback: create user profile if the row doesn't exist
+      supabase.from("users").upsert(
+        {
+          id: user.id,
+          name: user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split("@")[0] || null,
+          phone: user.phone || null,
+          plan: "free",
+        },
+        { onConflict: "id", ignoreDuplicates: true }
+      ).then(() => {
+        refreshProfile();
+      });
+    }
+  }, [user, profile, attemptedProfileCreation, refreshProfile]);
+
+  useEffect(() => {
+    if (activeTab === "leaderboard") {
+      fetchLeaderboard();
+    }
+  }, [activeTab]);
+
+  const fetchLeaderboard = async () => {
+    setLoadingLeaderboard(true);
+    try {
+      const { data, error } = await supabase
+        .from("users")
+        .select("id, name, leaderboard_points")
+        .order("leaderboard_points", { ascending: false, nullsFirst: false })
+        .limit(10);
+      
+      if (!error && data) {
+        setLeaderboard(data);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+    setLoadingLeaderboard(false);
+  };
 
   const handleLogout = async () => {
     setLoggingOut(true);
@@ -69,6 +118,24 @@ export default function ProfilePage() {
     
     router.push("/login");
     router.refresh();
+  };
+
+  const handleResetHistory = async () => {
+    if (user) {
+      try {
+        const res = await fetch(`/api/reset-history?userId=${user.id}`, { method: 'DELETE' });
+        if (res.ok) {
+          toast("सराव इतिहास रीसेट झाला आहे!");
+        } else {
+          toast("इतिहास रीसेट करताना त्रुटी आली.");
+        }
+      } catch {
+        toast("इतिहास रीसेट करताना त्रुटी आली.");
+      }
+    } else {
+      localStorage.removeItem("guest_history");
+      toast("सराव इतिहास रीसेट झाला आहे!");
+    }
   };
 
   const handlePremiumUpgrade = useCallback(async () => {
@@ -203,6 +270,12 @@ export default function ProfilePage() {
           onClick: isPremium ? () => toast("तुमचा Premium प्लॅन सक्रिय आहे!") : handlePremiumUpgrade,
         },
         {
+          icon: RotateCcw,
+          label: "इतिहास रीसेट",
+          sublabel: "सराव इतिहास नव्याने सुरू करा",
+          onClick: handleResetHistory,
+        },
+        {
           icon: Bell,
           label: "सूचना",
           sublabel: "अभ्यासाचे रिमाइंडर",
@@ -273,6 +346,78 @@ export default function ProfilePage() {
         </Link>
       </div>
 
+      {/* Tabs */}
+      <div className="flex bg-dark-card rounded-xl p-1 mb-5">
+        <button
+          onClick={() => setActiveTab("profile")}
+          className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
+            activeTab === "profile"
+              ? "bg-navy text-white shadow-lg"
+              : "text-gray-500 hover:text-gray-300"
+          }`}
+        >
+          प्रोफाइल
+        </button>
+        <button
+          onClick={() => setActiveTab("leaderboard")}
+          className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all flex items-center justify-center gap-2 ${
+            activeTab === "leaderboard"
+              ? "bg-navy text-white shadow-lg"
+              : "text-gray-500 hover:text-gray-300"
+          }`}
+        >
+          <Trophy size={14} className={activeTab === "leaderboard" ? "text-saffron" : ""} />
+          लीडरबोर्ड
+        </button>
+      </div>
+
+      {activeTab === "leaderboard" ? (
+        <section className="animate-fade-in mb-24">
+          <div className="glass rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-8 h-8 rounded-lg bg-saffron/10 flex items-center justify-center">
+                <Trophy size={16} className="text-saffron" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-white">टॉप 10 विद्यार्थी</h3>
+                <p className="text-[10px] text-gray-400">रोजचे आव्हान सोडवून गुण मिळवा</p>
+              </div>
+            </div>
+            
+            {loadingLeaderboard ? (
+              <div className="flex justify-center py-8">
+                <Loader2 size={24} className="text-saffron animate-spin" />
+              </div>
+            ) : leaderboard.length === 0 ? (
+              <div className="text-center py-8 text-gray-500 text-sm">
+                अजून कोणीही नाही
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {leaderboard.map((u, idx) => (
+                  <div key={u.id} className={`flex items-center justify-between p-3 rounded-xl border transition-colors ${u.id === user?.id ? 'bg-saffron/10 border-saffron/30' : 'bg-dark-bg/50 border-dark-border hover:border-gray-700'}`}>
+                    <div className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${idx === 0 ? 'bg-yellow-500/20 text-yellow-500' : idx === 1 ? 'bg-gray-300/20 text-gray-300' : idx === 2 ? 'bg-amber-700/20 text-amber-600' : 'bg-dark-card text-gray-400'}`}>
+                        {idx + 1}
+                      </div>
+                      <div>
+                        <span className={`text-sm font-medium block leading-tight ${u.id === user?.id ? 'text-saffron' : 'text-white'}`}>
+                          {u.name || "वापरकर्ता"} {u.id === user?.id && "(तुम्ही)"}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 bg-dark-card px-2 py-1.5 rounded-lg border border-dark-border">
+                      <Medal size={12} className="text-saffron" />
+                      <span className="text-xs font-bold text-white">{u.leaderboard_points || 0}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
+      ) : (
+        <>
       {/* Payment Success Banner */}
       {paymentSuccess && (
         <div className="mb-4 p-3 rounded-xl bg-green-500/10 border border-green-500/20 flex items-center gap-2 animate-slide-up">
@@ -470,6 +615,8 @@ export default function ProfilePage() {
           MH_Bharti AI v1.0.0 • Made with ❤️ in Maharashtra
         </p>
       </div>
+      </>
+      )}
     </div>
   );
 }

@@ -268,11 +268,11 @@ export default function HomePage() {
 
       {/* ───────── Daily Challenge ───────── */}
       <section className="mb-8 animate-slide-up" style={{ animationDelay: "0.4s" }}>
-        <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-saffron/20 via-dark-card to-navy/20 p-4 border border-saffron/10">
-          <div className="absolute top-0 right-0 w-20 h-20 bg-saffron/5 rounded-full blur-2xl" />
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-saffron/10 flex items-center justify-center">
-              <Trophy size={24} className="text-saffron" />
+        <Link href="/practice?mode=daily-challenge" className="block relative overflow-hidden rounded-xl bg-gradient-to-r from-saffron/20 via-dark-card to-navy/20 p-4 border border-saffron/10 transition-all hover:border-saffron/30 hover:shadow-lg hover:shadow-saffron/5 group">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-saffron/5 rounded-full blur-2xl flex-shrink-0" />
+          <div className="flex items-center gap-3 relative z-10">
+            <div className="w-12 h-12 rounded-xl bg-saffron/10 flex items-center justify-center shadow-inner">
+              <Trophy size={24} className="text-saffron group-hover:scale-110 transition-transform" />
             </div>
             <div className="flex-1">
               <h4 className="text-sm font-bold text-white">
@@ -282,13 +282,11 @@ export default function HomePage() {
                 10 प्रश्न सोडवा आणि बक्षीस मिळवा
               </p>
             </div>
-            <Link href="/practice?mode=daily">
-              <div className="bg-saffron text-white text-xs font-bold px-4 py-2 rounded-xl hover:bg-saffron-600 transition-colors">
-                सुरू करा
-              </div>
-            </Link>
+            <div className="bg-saffron text-white text-xs font-bold px-4 py-2 rounded-xl group-hover:bg-saffron-600 transition-colors shadow-md">
+              सुरू करा
+            </div>
           </div>
-        </div>
+        </Link>
       </section>
 
       {/* ───────── Premium Upgrade (only for free users) ───────── */}

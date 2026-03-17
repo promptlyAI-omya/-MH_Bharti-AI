@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
   Send,
@@ -33,12 +34,22 @@ const suggestedPrompts = [
 ];
 
 export default function AiChatPage() {
+  return (
+    <Suspense fallback={<div className="h-screen bg-dark-bg" />}>
+      <AiChatContent />
+    </Suspense>
+  );
+}
+
+function AiChatContent() {
+  const searchParams = useSearchParams();
   const { user, profile, refreshProfile } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const contextRef = useRef<string | null>(searchParams.get("ctx"));
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -47,6 +58,14 @@ export default function AiChatPage() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  useEffect(() => {
+    const prefill = searchParams.get("prefill");
+    if (prefill && messages.length === 0 && !loading) {
+      sendMessage(prefill);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const sendMessage = async (text?: string) => {
     const messageText = text || input.trim();
@@ -75,6 +94,7 @@ export default function AiChatPage() {
         body: JSON.stringify({
           message: messageText,
           user_id: user?.id || null,
+          ctx: contextRef.current,
         }),
       });
 

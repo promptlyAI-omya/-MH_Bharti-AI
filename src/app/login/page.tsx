@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useToast } from "@/components/ToastProvider";
 
 type AuthMode = "login" | "signup" | "magic-link";
 
@@ -29,6 +30,7 @@ function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const urlError = searchParams.get("error");
+  const { toast } = useToast();
 
   const [mode, setMode] = useState<AuthMode>("login");
   const [email, setEmail] = useState("");
@@ -128,12 +130,13 @@ function LoginContent() {
             },
             { onConflict: "id" }
           );
+          toast("Account यशस्वीरीत्या तयार झाले! MH_Bharti AI मध्ये आपले स्वागत आहे.");
           router.push("/");
           router.refresh();
         }
       } else {
         // Login
-        const { error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await supabase.auth.signInWithPassword({
           email: email.trim(),
           password,
         });
@@ -144,7 +147,17 @@ function LoginContent() {
           } else {
             setError("Email किंवा Password चुकीचे आहे");
           }
-        } else {
+        } else if (data.user) {
+          // Fallback check to ensure user row exists
+          await supabase.from("users").upsert(
+            {
+              id: data.user.id,
+              name: data.user.user_metadata?.full_name || data.user.user_metadata?.name || data.user.email?.split("@")[0] || null,
+              plan: "free",
+            },
+            { onConflict: "id", ignoreDuplicates: true }
+          );
+          toast("यशस्वीरीत्या Login केले!");
           router.push("/");
           router.refresh();
         }
@@ -431,8 +444,16 @@ function LoginContent() {
         </div>
 
         {/* Terms */}
-        <p className="text-[10px] text-gray-600 mt-6 text-center max-w-[250px]">
-          लॉगिन करून, तुम्ही आमच्या सेवा अटी आणि गोपनीयता धोरण मान्य करता
+        <p className="text-[10px] text-gray-600 mt-6 text-center max-w-[280px] leading-relaxed">
+          Login करून तुम्ही आमच्या{" "}
+          <Link href="/terms" className="text-saffron hover:underline">
+            Terms
+          </Link>{" "}
+          आणि{" "}
+          <Link href="/privacy" className="text-saffron hover:underline">
+            Privacy Policy
+          </Link>{" "}
+          शी सहमत आहात
         </p>
       </div>
     </div>

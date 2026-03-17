@@ -170,11 +170,11 @@ export default function SettingsPage() {
               <span className="text-xs font-mono text-gray-500 bg-dark-bg px-2 py-1 rounded">v1.1.0</span>
             </div>
             
-            <Link href="#" className="flex items-center justify-between p-4 hover:bg-white/5 transition-colors text-left">
+            <Link href="/terms" className="flex items-center justify-between p-4 hover:bg-white/5 transition-colors text-left">
               <p className="text-sm font-medium text-gray-300 ml-12">Terms of Service</p>
               <ChevronRight size={14} className="text-gray-600" />
             </Link>
-            <Link href="#" className="flex items-center justify-between p-4 hover:bg-white/5 transition-colors text-left">
+            <Link href="/privacy" className="flex items-center justify-between p-4 hover:bg-white/5 transition-colors text-left">
               <p className="text-sm font-medium text-gray-300 ml-12">Privacy Policy</p>
               <ChevronRight size={14} className="text-gray-600" />
             </Link>

@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { message, user_id } = body;
+    const { message, user_id, ctx } = body;
 
     if (!message) {
       return NextResponse.json({ error: "Message required" }, { status: 400 });
@@ -96,9 +96,16 @@ export async function POST(request: NextRequest) {
     } else {
       // Call Groq
       model = chooseModel(message);
+      let activeSystemPrompt = SYSTEM_PROMPT;
+      
+      // Override system prompt if context (ctx) is provided from practice pages
+      if (ctx) {
+        activeSystemPrompt = `Tu MH_Bharti AI cha Marathi coach aahes. User ek topic shikto aahe.\n\n${ctx}\n\nExplain khar tar Marathi madhe, simple language madhe, step by step.`;
+      }
+
       const completion = await groq.chat.completions.create({
         messages: [
-          { role: "system", content: SYSTEM_PROMPT },
+          { role: "system", content: activeSystemPrompt },
           { role: "user", content: message },
         ],
         model,

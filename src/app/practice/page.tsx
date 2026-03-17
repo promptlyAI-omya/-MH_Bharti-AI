@@ -12,7 +12,8 @@ import {
   Lock,
 } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/components/SupabaseProvider";
 
 const topics = [
@@ -78,6 +79,14 @@ export default function PracticePage() {
   const [selectedExam, setSelectedExam] = useState<string | null>(null);
   const [selectedDifficulty, setSelectedDifficulty] = useState("सर्व");
   const [searchQuery, setSearchQuery] = useState("");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    if (searchParams.get("mode") === "daily-challenge") {
+      router.replace("/practice/daily-challenge");
+    }
+  }, [searchParams, router]);
 
   const filteredTopics = selectedExam
     ? topics.filter((t) => t.exam === selectedExam)
