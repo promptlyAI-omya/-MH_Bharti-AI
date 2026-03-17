@@ -54,7 +54,7 @@ type TabType = "learn" | "example" | "practice";
 export default function QuizPage() {
   const params = useParams();
   const router = useRouter();
-  const { user, profile } = useAuth();
+  const { user, profile, loading } = useAuth();
   const exam = decodeURIComponent(params.exam as string);
   const topic = decodeURIComponent(params.topic as string);
 
@@ -79,30 +79,57 @@ export default function QuizPage() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
-  const AI_TOPICS = ["आकृती मोजणी", "संख्या मालिका", "सादृश्यता", "दिशा ज्ञान"];
-  const isAITopic = AI_TOPICS.includes(topic);
+  const isAITopic = ["आकृती मोजणी", "संख्या मालिका", "सादृश्यता", "दिशा ज्ञान"].includes(topic);
+
+  // Redirect instantly if guest tries to access an AI topic
+  useEffect(() => {
+    if (isAITopic && !loading && !user) {
+      router.replace("/login");
+    }
+  }, [isAITopic, loading, user, router]);
 
   const fetchTopicContent = useCallback(async () => {
     try {
-      const res = await fetch(`/api/topic-content?exam=${exam}&topic=${encodeURIComponent(topic)}`);
-      const data = await res.json();
-      if (data.data) {
-        setTopicContent(data.data);
-      }
+        if (isAITopic) {
+          const res = await fetch("/api/generate-topic-info", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ topic, examType: exam })
+          });
+          const data = await res.json();
+          if (data.topicInfo) {
+             setTopicContent(data.topicInfo);
+          } else {
+             // Fallback to static if AI generation fails or is structured wrong
+             const staticRes = await fetch(`/api/topic-content?topic=${encodeURIComponent(topic)}`);
+             const staticData = await staticRes.json();
+             if (staticData.content) setTopicContent(staticData.content);
+          }
+        } else {
+          const res = await fetch(`/api/topic-content?exam=${exam}&topic=${encodeURIComponent(topic)}`);
+          const data = await res.json();
+          if (data.data) {
+            setTopicContent(data.data);
+          }
+        }
     } catch (err) {
       console.error("माहिती लोड करताना त्रुटी आली:", err);
     }
     setLoadingContent(false);
-  }, [exam, topic]);
+  }, [exam, topic, isAITopic]);
 
   const fetchQuestions = useCallback(async () => {
     try {
       let res;
       if (isAITopic) {
+        if (!user) return; // Guests are blocked
+        
+        const qCount = profile?.plan === "premium" ? 20 : 5;
+
         res = await fetch("/api/generate-questions", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ topic, difficulty: "मध्यम", count: 10, examType: exam })
+          body: JSON.stringify({ topic, difficulty: "मध्यम", count: qCount, examType: exam })
         });
       } else {
         let url = `/api/questions?exam=${exam}&topic=${encodeURIComponent(topic)}&limit=10`;
@@ -231,7 +258,7 @@ export default function QuizPage() {
         }
       }
     }
-  }, [currentIndex, questions.length, score, user, exam, topic, startTime, selectedAnswer, currentQuestion, isAITopic, supabase]);
+  }, [currentIndex, questions.length, score, user, exam, topic, startTime, selectedAnswer, currentQuestion, isAITopic, supabase, profile?.plan]);
 
   const openAIChat = async (customPrompt: string) => {
     if (!user) {

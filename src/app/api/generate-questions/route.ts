@@ -37,54 +37,57 @@ const TOPIC_PROMPTS: Record<string, TopicInfo> = {
 
 export async function POST(req: NextRequest) {
   try {
-    const { topic, difficulty, count = 10, examType = "पोलीस भरती" } = await req.json();
+    const { topic, difficulty, count = 5, examType = "पोलीस भरती" } = await req.json();
 
     if (!topic || !difficulty) {
       return NextResponse.json({ error: "Topic and difficulty required" }, { status: 400 });
     }
 
     const supabase = createServerClient();
-    const cacheKey = `${examType}_${topic}_${difficulty}`;
-
-    // 1. Check cache first (for questions array)
-    const { data: cached } = await supabase
-      .from("ai_question_cache")
+    
+    // 1. Check existing questions in the database for this topic
+    const { data: dbQuestions, error: dbError } = await supabase
+      .from("questions")
       .select("*")
-      .eq("cache_key", cacheKey)
-      .single();
+      .eq("topic", topic)
+      .eq("exam", examType)
+      .eq("difficulty", difficulty);
 
-    if (cached?.questions) {
-      try {
-        const questionsList = JSON.parse(cached.questions);
-        
-        // Update hit count
-        await supabase
-          .from("ai_question_cache")
-          .update({ hit_count: (cached.hit_count || 0) + 1 })
-          .eq("id", cached.id);
-
-        if (questionsList.length >= count) {
-          return NextResponse.json({ questions: shuffleAndPick(questionsList, count) });
-        }
-      } catch (e) {
-        console.error("Cache parsing error:", e);
-      }
+    if (dbError) {
+       console.error("Database query error:", dbError);
     }
 
-    // 2. Generate with Groq if cache miss or insufficient questions
+    const existingCount = dbQuestions ? dbQuestions.length : 0;
+    
+    // Logic: 
+    // If we have >= 1000 questions in DB, mix DB + newly generated.
+    // If not, generate all requested count entirely new via AI.
+    let generateCount = count;
+    let fallbackQuestions = [];
+
+    if (existingCount >= 1000 && dbQuestions) {
+       // Free users (count=5): 3 DB + 2 AI
+       // Premium users (count=20): 15 DB + 5 AI
+       const aiCount = count === 20 ? 5 : 2;
+       generateCount = aiCount;
+       const dbPickCount = count - aiCount;
+       
+       fallbackQuestions = shuffleAndPick(dbQuestions, dbPickCount);
+    }
+
+    // 2. Generate new questions with Groq
     const topicInfo = TOPIC_PROMPTS[topic] || { context: topic, isVisual: false };
     
     let prompt = "";
     if (topicInfo.isVisual) {
       prompt = `
-      Generate 30 Maharashtra ${examType} exam questions for topic: ${topic}.
+      Generate exactly ${generateCount} valid, unique Maharashtra ${examType} exam questions for topic: ${topic}.
       Context: ${topicInfo.context}
       Difficulty: ${difficulty}
 
-      Return ONLY a valid JSON array matching this structure:
+      Return ONLY a valid JSON array matching this exact structure structure:
       [
         {
-          "id": "unique-uuid-or-string",
           "question_marathi": "या आकृतीत किती त्रिकोण आहेत? (किंवा योग्य प्रश्न)",
           "svg_visual": "<svg viewBox=\\"0 0 200 200\\" class=\\"w-full max-w-[280px] mx-auto\\">...</svg>",
           "options": { "a": "पर्याय १", "b": "पर्याय २", "c": "पर्याय ३", "d": "पर्याय ४" },
@@ -92,7 +95,9 @@ export async function POST(req: NextRequest) {
           "explanation_marathi": "स्पष्टीकरण मराठीत",
           "trick_used": "short trick Marathi",
           "difficulty": "${difficulty}",
-          "is_ai_variation": true
+          "is_ai_variation": true,
+          "topic": "${topic}",
+          "exam": "${examType}"
         }
       ]
 
@@ -106,25 +111,26 @@ export async function POST(req: NextRequest) {
       - Pure Marathi language for questions and options
       - Accurate logic and answers
       - ${examType} difficulty level
-      - Return ONLY JSON, no markdown formatting (\`\`\`json), no extra text.
+      - Return ONLY a raw JSON array, no markdown formatting (\`\`\`json), no extra text.
       `;
     } else {
       prompt = `
-      Generate 30 Maharashtra ${examType} exam questions for topic: ${topic}.
+      Generate exactly ${generateCount} valid, unique Maharashtra ${examType} exam questions for topic: ${topic}.
       Context: ${topicInfo.context}
       Difficulty: ${difficulty}
 
-      Return ONLY a valid JSON array matching this structure:
+      Return ONLY a valid JSON array matching this exact structure:
       [
         {
-          "id": "unique-uuid-or-string",
           "question_marathi": "प्रश्न मराठीत",
           "options": { "a": "पर्याय १", "b": "पर्याय २", "c": "पर्याय ३", "d": "पर्याय ४" },
           "correct_answer": "a",
           "explanation_marathi": "स्पष्टीकरण मराठीत",
           "trick_used": "short trick Marathi",
           "difficulty": "${difficulty}",
-          "is_ai_variation": true
+          "is_ai_variation": true,
+          "topic": "${topic}",
+          "exam": "${examType}"
         }
       ]
 
@@ -132,14 +138,14 @@ export async function POST(req: NextRequest) {
       - Pure Marathi language for questions and explanations
       - Accurate logic and answers
       - ${examType} difficulty level
-      - Return ONLY JSON, no markdown formatting (\`\`\`json), no extra text.
+      - Return ONLY a raw JSON array, no markdown formatting (\`\`\`json), no extra text.
       `;
     }
 
     const completion = await groq.chat.completions.create({
       messages: [{ role: "user", content: prompt }],
       model: "llama-3.3-70b-versatile",
-      temperature: 0.7,
+      temperature: 0.8,
       max_tokens: 3000,
     });
 
@@ -152,26 +158,48 @@ export async function POST(req: NextRequest) {
       generatedQuestions = JSON.parse(cleanJson);
     } catch {
       console.error("Failed to parse Groq response:", responseText);
-      return NextResponse.json({ error: "Failed to generate questions" }, { status: 500 });
+      // Fallback: If we fail to parse and we have enough DB questions, return them.
+      if (dbQuestions && dbQuestions.length >= count) {
+         return NextResponse.json({ questions: shuffleAndPick(dbQuestions, count) });
+      }
+      return NextResponse.json({ error: "Failed to generate AI questions formatting" }, { status: 500 });
     }
 
     if (!Array.isArray(generatedQuestions)) {
+      if (dbQuestions && dbQuestions.length >= count) {
+         return NextResponse.json({ questions: shuffleAndPick(dbQuestions, count) });
+      }
       return NextResponse.json({ error: "Invalid response format from AI" }, { status: 500 });
     }
 
-    // 3. Cache the generated questions
-    await supabase.from("ai_question_cache").upsert(
-      {
-        cache_key: cacheKey,
-        questions: JSON.stringify(generatedQuestions),
-        hit_count: 1,
-      },
-      { onConflict: "cache_key" }
-    );
+    // 3. Store the globally generated questions PERMANENTLY into the database table
+    if (generatedQuestions.length > 0) {
+      // Map correctly to ensure no missing values before insert
+       const toInsert = generatedQuestions.map(q => ({
+          exam: q.exam || examType,
+          topic: q.topic || topic,
+          question_marathi: q.question_marathi,
+          options: q.options,
+          correct_answer: q.correct_answer,
+          explanation_marathi: q.explanation_marathi,
+          trick_used: q.trick_used,
+          difficulty: q.difficulty || difficulty,
+          is_ai_variation: true,
+          svg_visual: q.svg_visual || null,
+       }));
+       
+       const { error: insertError } = await supabase.from("questions").insert(toInsert);
+       if (insertError) {
+          console.error("Failed to insert generated questions to DB:", insertError);
+       }
+    }
 
-    // 4. Return the requested count to the user
+    // Combine any DB random picks with the newly generated AI ones
+    const finalQuestions = [...fallbackQuestions, ...generatedQuestions];
+
+    // Shuffle once more to blend them seamlessly
     return NextResponse.json({ 
-      questions: shuffleAndPick(generatedQuestions, count) 
+      questions: shuffleAndPick(finalQuestions, count) 
     });
 
   } catch (error) {
