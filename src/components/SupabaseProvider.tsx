@@ -76,7 +76,7 @@ export default function SupabaseProvider({ children }: { children: ReactNode }) 
         const currentProfile = await fetchProfile(session.user.id);
         // Auto-create user row if it doesn't exist (covers all auth methods)
         if (!currentProfile && (_event === "SIGNED_IN" || _event === "INITIAL_SESSION")) {
-          await supabase.from("users").upsert(
+          const { error: insertError } = await supabase.from("users").insert([
             {
               id: session.user.id,
               name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || session.user.email?.split("@")[0] || null,
@@ -85,10 +85,15 @@ export default function SupabaseProvider({ children }: { children: ReactNode }) 
               ai_credits: 10,
               daily_question_count: 0,
               streak_count: 0,
-            },
-            { onConflict: "id" }
-          );
-          await fetchProfile(session.user.id);
+            }
+          ]);
+          
+          if (!insertError) {
+             await fetchProfile(session.user.id);
+          } else {
+             // If insert fails (e.g. unique violation), it means row exists but was just slow to fetch. Re-fetch it.
+             await fetchProfile(session.user.id);
+          }
         }
       } else {
         setProfile(null);

@@ -22,7 +22,7 @@ import {
 import Link from "next/link";
 import { useAuth } from "@/components/SupabaseProvider";
 import { useToast } from "@/components/ToastProvider";
-import { createBrowserClient } from "@supabase/ssr";
+import { supabase } from "@/lib/supabase";
 
 interface Question {
   id: string;
@@ -83,10 +83,6 @@ export default function QuizPage() {
   const [startTime] = useState(Date.now());
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [upgradeModalContent, setUpgradeModalContent] = useState({ title: "", desc: "", sub: "" });
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
 
   const handleBuyCredits = async () => {
     if (!user) {
@@ -185,7 +181,16 @@ export default function QuizPage() {
           });
           const data = await res.json();
           if (data.topicInfo) {
-             setTopicContent(data.topicInfo);
+             setTopicContent({
+                id: topic,
+                topic_name: topic,
+                concept_marathi: data.topicInfo.concept || "",
+                trick_marathi: data.topicInfo.trick || "",
+                example_q1: data.topicInfo.examples?.[0]?.q || "",
+                example_q1_steps: data.topicInfo.examples?.[0]?.a || "",
+                example_q2: data.topicInfo.examples?.[1]?.q || "",
+                example_q2_steps: data.topicInfo.examples?.[1]?.a || "",
+             });
           } else {
              // Fallback to static if AI generation fails or is structured wrong
              const staticRes = await fetch(`/api/topic-content?topic=${encodeURIComponent(topic)}`);
@@ -451,6 +456,21 @@ export default function QuizPage() {
           <PenTool size={14} /> सराव
         </button>
       </div>
+      
+      {isAITopic && (
+        <div className="bg-saffron/10 border border-saffron/30 rounded-xl p-3 mb-6 flex items-start gap-3">
+          <Sparkles size={16} className="text-saffron mt-0.5 flex-shrink-0" />
+          <div>
+            <p className="text-xs text-saffron font-bold mb-1">AI-Powered Topic</p>
+            <p className="text-xs text-gray-300">
+               येथे AI च्या मदतीने सर्व प्रश्न व माहिती तयार करण्यात आली आहे.
+               <strong className="text-saffron ml-1 block mt-1">
+                 टीप: प्रत्येक सराव प्रश्नासाठी 1 AI Credit खर्च होईल!
+               </strong>
+            </p>
+          </div>
+        </div>
+      )}
     </>
   );
 
@@ -462,7 +482,12 @@ export default function QuizPage() {
         {loadingContent ? (
           <div className="flex flex-col items-center pt-20">
             <Loader2 size={32} className="text-saffron animate-spin" />
-            <p className="text-sm text-gray-400 mt-4">माहिती लोड होत आहे...</p>
+            <p className="text-sm font-bold text-white mt-4">AI स्क्रिप्ट लोड होत आहे...</p>
+            {isAITopic && (
+              <p className="text-xs text-gray-400 mt-2 text-center max-w-[250px] leading-relaxed">
+                पहिल्यांदा माहिती लोड होण्यासाठी 5-10 सेकंद लागू शकतात, कृपया प्रतीक्षा करा.
+              </p>
+            )}
           </div>
         ) : !topicContent ? (
           <div className="text-center pt-16 animate-fade-in">
@@ -529,7 +554,12 @@ export default function QuizPage() {
         {loadingContent ? (
           <div className="flex flex-col items-center pt-20">
             <Loader2 size={32} className="text-saffron animate-spin" />
-            <p className="text-sm text-gray-400 mt-4">उदाहरणे लोड होत आहेत...</p>
+            <p className="text-sm font-bold text-white mt-4">AI उदाहरणे लोड होत आहेत...</p>
+            {isAITopic && (
+              <p className="text-xs text-gray-400 mt-2 text-center max-w-[250px] leading-relaxed">
+                अधिक माहितीसाठी 5-10 सेकंद लागू शकतात, कृपया प्रतीक्षा करा.
+              </p>
+            )}
           </div>
         ) : !topicContent ? (
           <div className="text-center pt-16 animate-fade-in">
