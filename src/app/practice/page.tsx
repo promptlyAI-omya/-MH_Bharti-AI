@@ -162,14 +162,53 @@ export default function PracticePage() {
         </div>
       </div>
 
-      {/* Topic Cards */}
       <div className="space-y-4 mb-24">
         {filteredTopics.map((topic) => {
           const Icon = topic.icon;
           const filteredSubjects = searchQuery
-            ? topic.subjects.filter((s) =>
-                s.name.includes(searchQuery)
-              )
+            ? topic.subjects.filter((s) => {
+                const query = searchQuery.toLowerCase();
+                // Map common English terms to Marathi subjects
+                const searchDictionary: Record<string, string[]> = {
+                  "math": ["गणित"],
+                  "maths": ["गणित"],
+                  "ganit": ["गणित"],
+                  "reasoning": ["बुद्धिमत्ता", "बुद्धिमत्ता चाचणी"],
+                  "buddhimatta": ["बुद्धिमत्ता", "बुद्धिमत्ता चाचणी"],
+                  "gk": ["सामान्य ज्ञान"],
+                  "general knowledge": ["सामान्य ज्ञान"],
+                  "marathi": ["मराठी", "मराठी व्याकरण"],
+                  "grammar": ["व्याकरण", "मराठी व्याकरण"],
+                  "history": ["इतिहास"],
+                  "itihas": ["इतिहास"],
+                  "geography": ["भूगोल"],
+                  "bhugol": ["भूगोल"],
+                  "science": ["विज्ञान"],
+                  "vidnyan": ["विज्ञान"],
+                  "economics": ["अर्थशास्त्र"],
+                  "current affairs": ["चालू घडामोडी"],
+                  "law": ["कायदे", "कायदा", "महसूल कायदा"],
+                  "environment": ["पर्यावरण"],
+                  "computer": ["संगणक", "संगणक ज्ञान"],
+                  "agriculture": ["कृषी"],
+                  "panchayat": ["पंचायत राज"],
+                  "rural": ["ग्रामीण विकास", "ग्रामीण अर्थव्यवस्था"],
+                  "sociology": ["समाजशास्त्र"]
+                };
+
+                // Check direct match
+                if (s.name.toLowerCase().includes(query)) return true;
+
+                // Check mapped matches
+                for (const [key, values] of Object.entries(searchDictionary)) {
+                  if (key.includes(query) || query.includes(key)) {
+                    if (values.some(v => s.name.includes(v))) {
+                      return true;
+                    }
+                  }
+                }
+                return false;
+              })
             : topic.subjects;
 
           if (filteredSubjects.length === 0) return null;

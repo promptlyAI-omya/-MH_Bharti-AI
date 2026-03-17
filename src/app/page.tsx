@@ -15,7 +15,12 @@ import {
   Brain,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/SupabaseProvider";
+import { useToast } from "@/components/ToastProvider";
+import dynamic from "next/dynamic";
+
+const ThemeToggle = dynamic(() => import("@/components/ThemeToggle"), { ssr: false });
 
 const examCategories = [
   {
@@ -57,7 +62,9 @@ const examCategories = [
 ];
 
 export default function HomePage() {
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
+  const { toast } = useToast();
+  const router = useRouter();
   const isPremium = profile?.plan === "premium";
 
   const quickStats = [
@@ -84,6 +91,16 @@ export default function HomePage() {
     },
   ];
 
+  const handleAIClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (!user) {
+      toast("AI सहाय्यक वापरण्यासाठी कृपया login करा");
+      router.push("/login");
+    } else {
+      router.push("/ai-chat");
+    }
+  };
+
   return (
     <div className="max-w-md mx-auto px-4 pt-safe">
       {/* ───────── Header ───────── */}
@@ -105,6 +122,7 @@ export default function HomePage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <ThemeToggle />
             <div
               className={`px-3 py-1.5 rounded-full border ${
                 isPremium
@@ -180,7 +198,7 @@ export default function HomePage() {
       <section className="mb-6 animate-slide-up" style={{ animationDelay: "0.2s" }}>
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-base font-bold text-white">परीक्षा निवडा</h3>
-          <span className="text-xs text-gray-500">सर्व पहा →</span>
+          <Link href="/practice" className="text-xs text-gray-500 hover:text-white transition-colors">सर्व पहा →</Link>
         </div>
         <div className="grid grid-cols-2 gap-3">
           {examCategories.map((exam) => {
@@ -239,12 +257,12 @@ export default function HomePage() {
               सांगा...&quot;
             </p>
           </div>
-          <Link
-            href="/ai-chat"
+          <button
+            onClick={handleAIClick}
             className="mt-3 w-full btn-primary text-xs text-center block"
           >
             AI शी बोला →
-          </Link>
+          </button>
         </div>
       </section>
 

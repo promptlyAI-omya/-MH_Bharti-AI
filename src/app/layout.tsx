@@ -2,32 +2,17 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import BottomNav from "@/components/BottomNav";
 import RazorpayBootstrap from "@/components/RazorpayBootstrap";
+import { ThemeProvider } from "@/components/ThemeProvider";
+import { ToastProvider } from "@/components/ToastProvider";
 import SupabaseProvider from "@/components/SupabaseProvider";
 import { RAZORPAY_CHECKOUT_SRC } from "@/lib/razorpay-client";
 
 export const metadata: Metadata = {
-  title: "MH_Bharti AI | महाराष्ट्राचं स्वतःचं Exam Prep AI",
-  description:
-    "Maharashtra government exam preparation with AI - Police Bharti, MPSC, Talathi, Gramsevak. AI-powered practice, mock tests, and smart analysis.",
-  manifest: "/manifest.json",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "black-translucent",
-    title: "MH Bharti AI",
-  },
-  openGraph: {
-    title: "MH_Bharti AI",
-    description: "महाराष्ट्राचं स्वतःचं Exam Prep AI",
-    type: "website",
-  },
+// ... existing metadata ...
 };
 
 export const viewport: Viewport = {
-  width: "device-width",
-  initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
-  themeColor: "#FF6B00",
+// ... existing viewport ...
 };
 
 export default function RootLayout({
@@ -46,12 +31,16 @@ export default function RootLayout({
           content="black-translucent"
         />
       </head>
-      <body className="antialiased">
+      <body className="antialiased text-white light-theme:text-gray-900 transition-colors duration-300">
         <RazorpayBootstrap />
-        <SupabaseProvider>
-          <main className="min-h-screen pb-20">{children}</main>
-          <BottomNav />
-        </SupabaseProvider>
+        <ToastProvider>
+          <ThemeProvider>
+            <SupabaseProvider>
+              <main className="min-h-screen pb-20">{children}</main>
+              <BottomNav />
+            </SupabaseProvider>
+          </ThemeProvider>
+        </ToastProvider>
       </body>
     </html>
   );

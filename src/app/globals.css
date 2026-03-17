@@ -13,6 +13,13 @@
   --dark-surface: #141414;
 }
 
+.light-theme {
+  --dark-bg: #F9FAFB;
+  --dark-card: #FFFFFF;
+  --dark-border: #E5E7EB;
+  --dark-surface: #F3F4F6;
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -26,7 +33,7 @@ html {
 
 body {
   background-color: var(--dark-bg);
-  color: #FFFFFF;
+  color: var(--text-color, #FFFFFF);
   font-family: 'Noto Sans Devanagari', 'Inter', system-ui, sans-serif;
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
@@ -62,6 +69,32 @@ body {
     backdrop-filter: blur(30px);
     -webkit-backdrop-filter: blur(30px);
     border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .light-theme body {
+    color: #111827;
+  }
+  
+  .light-theme .text-white {
+    color: #111827 !important;
+  }
+
+  .light-theme .text-white\/60 {
+    color: rgba(17, 24, 39, 0.6) !important;
+  }
+  
+  .light-theme .text-white\/40 {
+    color: rgba(17, 24, 39, 0.4) !important;
+  }
+
+  .light-theme .glass {
+    background: rgba(255, 255, 255, 0.7);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+  }
+
+  .light-theme .glass-strong {
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(0, 0, 0, 0.1);
   }
 
   .saffron-glow {

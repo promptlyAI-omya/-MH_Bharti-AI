@@ -25,12 +25,8 @@ import { useAuth } from "@/components/SupabaseProvider";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-
-declare global {
-  interface Window {
-    Razorpay: new (options: RazorpayOptions) => { open: () => void };
-  }
-}
+import { useToast } from "@/components/ToastProvider";
+import { loadRazorpayScript } from "@/lib/razorpay-client";
 
 interface RazorpayOptions {
   key: string;
@@ -53,6 +49,7 @@ interface RazorpayResponse {
 
 export default function ProfilePage() {
   const { user, profile, refreshProfile } = useAuth();
+  const { toast } = useToast();
   const router = useRouter();
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
@@ -74,20 +71,6 @@ export default function ProfilePage() {
     router.refresh();
   };
 
-  const loadRazorpayScript = (): Promise<boolean> => {
-    return new Promise((resolve) => {
-      if (window.Razorpay) {
-        resolve(true);
-        return;
-      }
-      const script = document.createElement("script");
-      script.src = "https://checkout.razorpay.com/v1/checkout.js";
-      script.onload = () => resolve(true);
-      script.onerror = () => resolve(false);
-      document.body.appendChild(script);
-    });
-  };
-
   const handlePremiumUpgrade = useCallback(async () => {
     if (!user) {
       router.push("/login");
@@ -96,7 +79,7 @@ export default function ProfilePage() {
 
     const rzpKey = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
     if (!rzpKey) {
-      alert("पेमेंट सेटअप होत आहे, कृपया थोडा वेळ थांबा");
+      toast("पेमेंट सध्या उपलब्ध नाही, कृपया नंतर प्रयत्न करा");
       return;
     }
 
@@ -106,7 +89,7 @@ export default function ProfilePage() {
       // Load Razorpay script
       const loaded = await loadRazorpayScript();
       if (!loaded) {
-        alert("Payment service load करता आले नाही. पुन्हा प्रयत्न करा.");
+        toast("Payment service load करता आले नाही. पुन्हा प्रयत्न करा.");
         setPaymentLoading(false);
         return;
       }
@@ -149,10 +132,10 @@ export default function ProfilePage() {
               await refreshProfile();
               setTimeout(() => setPaymentSuccess(false), 5000);
             } else {
-              alert("Payment verification failed. Contact support.");
+              toast("Payment verification failed. Contact support.");
             }
           } catch {
-            alert("Verification error. मदतीसाठी संपर्क करा.");
+            toast("Verification error. मदतीसाठी संपर्क करा.");
           }
           setPaymentLoading(false);
           document.body.style.overflow = '';
@@ -173,15 +156,21 @@ export default function ProfilePage() {
         },
       };
 
+      if (!window.Razorpay) {
+        toast("Payment service load करता आले नाही. पुन्हा प्रयत्न करा.");
+        setPaymentLoading(false);
+        return;
+      }
+      
       const rzp = new window.Razorpay(options);
       rzp.open();
     } catch {
-      alert("Payment सुरू करता आली नाही. पुन्हा प्रयत्न करा.");
+      toast("Payment सुरू करता आली नाही. पुन्हा प्रयत्न करा.");
       setPaymentLoading(false);
       document.body.style.overflow = '';
       document.body.style.position = '';
     }
-  }, [user, profile, router, refreshProfile]);
+  }, [user, profile, router, refreshProfile, toast]);
 
   const handleShare = async () => {
     if (navigator.share) {
@@ -195,7 +184,7 @@ export default function ProfilePage() {
         console.log("Error sharing:", err);
       }
     } else {
-      alert("तुमच्या ब्राउझरमध्ये शेअर करण्याची सुविधा उपलब्ध नाही. (Link: " + window.location.origin + ")");
+      toast("तुमच्या ब्राउझरमध्ये शेअर करण्याची सुविधा उपलब्ध नाही.");
     }
   };
 
@@ -211,13 +200,13 @@ export default function ProfilePage() {
           sublabel: isPremium ? "Premium Plan ✨" : "Free Plan",
           badge: isPremium ? undefined : "अपग्रेड करा",
           badgeColor: "text-saffron bg-saffron/10",
-          onClick: isPremium ? () => alert("तुमचा Premium প্লॅन सक्रिय आहे!") : handlePremiumUpgrade,
+          onClick: isPremium ? () => toast("तुमचा Premium प्लॅन सक्रिय आहे!") : handlePremiumUpgrade,
         },
         {
           icon: Bell,
           label: "सूचना",
           sublabel: "अभ्यासाचे रिमाइंडर",
-          onClick: () => alert("सूचना चालू केल्या आहेत!"),
+          onClick: () => toast("सूचना चालू केल्या आहेत!"),
         },
         {
           icon: Shield,
@@ -239,7 +228,7 @@ export default function ProfilePage() {
           icon: Globe,
           label: "भाषा",
           sublabel: "मराठी",
-          onClick: () => alert("सध्या फक्त 'मराठी' भाषा उपलब्ध आहे. (Settings मधून बदल करता येईल)"),
+          onClick: () => toast("सध्या फक्त 'मराठी' भाषा उपलब्ध आहे."),
         },
         {
           icon: Settings,
@@ -262,13 +251,13 @@ export default function ProfilePage() {
           icon: Star,
           label: "रेट करा",
           sublabel: "Play Store वर रेट द्या",
-          onClick: () => alert("लवकरच येत आहे!"),
+          onClick: () => toast("लवकरच येत आहे!"),
         },
         {
           icon: HelpCircle,
           label: "मदत",
           sublabel: "FAQ आणि सपोर्ट",
-          onClick: () => alert("वापरकर्ता मदतीसाठी support@mhbhartiai.com वर संपर्क साधा"),
+          onClick: () => toast("वापरकर्ता मदतीसाठी support@mhbhartiai.com वर संपर्क साधा"),
         },
       ],
     },

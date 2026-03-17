@@ -8,6 +8,7 @@ import {
   FileText,
   BarChart3,
   User,
+  Trophy,
 } from "lucide-react";
 
 const navItems = [
@@ -40,6 +41,12 @@ const navItems = [
     labelEn: "Profile",
     href: "/profile",
     icon: User,
+  },
+  {
+    label: "लीडरबोर्ड",
+    labelEn: "Leaderboard",
+    href: "/leaderboard",
+    icon: Trophy,
   },
 ];
 
