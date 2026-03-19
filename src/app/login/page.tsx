@@ -142,9 +142,16 @@ function LoginContent() {
             console.log("DB insert note:", dbError.message);
           }
 
-          toast("🎉 खाते तयार झाले! Welcome to MH_Bharti AI");
-          router.push("/");
-          router.refresh();
+          if (!data.session) {
+            toast("⚠️ Verification link तुमच्या Email वर पाठवली आहे. कृपया check करा.");
+            setMode("login");
+            setPassword("");
+            setConfirmPassword("");
+          } else {
+            toast("🎉 खाते तयार झाले! Welcome to MH_Bharti AI");
+            router.push("/");
+            router.refresh();
+          }
         }
       } else {
         // Login
