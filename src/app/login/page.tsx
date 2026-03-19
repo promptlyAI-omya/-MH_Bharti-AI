@@ -170,15 +170,16 @@ function LoginContent() {
           router.refresh();
         }
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error(error);
-      if (error.message?.includes("already registered")) {
+      const err = error as Error;
+      if (err.message?.includes("already registered")) {
         setError("❌ हा email आधीच वापरला आहे. Login करा.");
-      } else if (error.message?.includes("rate limit")) {
+      } else if (err.message?.includes("rate limit")) {
         setError("⏳ खूप attempts झाले. 5 मिनिटे थांबा.");
-      } else if (error.message?.includes("invalid") || error.message?.includes("Invalid login credentials")) {
+      } else if (err.message?.includes("invalid") || err.message?.includes("Invalid login credentials")) {
         setError("❌ Email किंवा Password चुकीचे आहे");
-      } else if (error.message?.includes("Email not confirmed")) {
+      } else if (err.message?.includes("Email not confirmed")) {
         setError("कृपया तुमचा email confirm करा");
       } else {
         setError("❌ काहीतरी चुकले. पुन्हा प्रयत्न करा.");
