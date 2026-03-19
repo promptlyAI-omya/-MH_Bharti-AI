@@ -12,6 +12,8 @@ interface UserProfile {
   ai_credits: number;
   daily_question_count: number;
   streak_count: number;
+  is_donor: boolean;
+  donation_total: number;
 }
 
 interface SupabaseContextType {
@@ -85,6 +87,8 @@ export default function SupabaseProvider({ children }: { children: ReactNode }) 
               ai_credits: 10,
               daily_question_count: 0,
               streak_count: 0,
+              is_donor: false,
+              donation_total: 0,
             }
           ]);
           

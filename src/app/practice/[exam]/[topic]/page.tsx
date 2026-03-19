@@ -350,7 +350,7 @@ export default function QuizPage() {
         }
       }
     }
-  }, [currentIndex, questions.length, score, user, exam, topic, startTime, selectedAnswer, currentQuestion, isAITopic, supabase]);
+  }, [currentIndex, questions.length, score, user, exam, topic, startTime, selectedAnswer, currentQuestion, isAITopic]);
 
   const openAIChat = async (customPrompt: string) => {
     if (!user) {

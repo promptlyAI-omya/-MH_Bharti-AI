@@ -22,6 +22,7 @@ import {
   Trophy,
   Medal,
   RotateCcw,
+  Heart,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/components/SupabaseProvider";
@@ -449,6 +450,12 @@ export default function ProfilePage() {
                     </Link>
                   )}
                 </p>
+                {profile?.is_donor && (
+                  <div className="flex items-center gap-1 mt-1.5 px-2 py-0.5 bg-blue-500/10 border border-blue-500/20 rounded-full w-fit">
+                    <Heart size={10} className="text-blue-400 fill-blue-400" />
+                    <span className="text-[10px] font-bold text-blue-400">App Supporter</span>
+                  </div>
+                )}
               </div>
               <div className="flex items-center gap-2 mt-2">
                 <span
@@ -470,6 +477,31 @@ export default function ProfilePage() {
             </div>
           </div>
         </div>
+      </section>
+
+      {/* Support CTA */}
+      <section className="mb-5 animate-slide-up" style={{ animationDelay: "0.1s" }}>
+        <button
+          onClick={() => router.push("/support")}
+          className="w-full relative overflow-hidden rounded-xl bg-gradient-to-r from-blue-500/10 via-dark-card to-blue-500/5 p-4 border border-blue-500/20 text-left transition-all hover:border-blue-500/40 active:scale-[0.98]"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-xl bg-blue-500/20 flex items-center justify-center">
+              <Heart size={22} className="text-blue-400 fill-blue-400" />
+            </div>
+            <div className="flex-1">
+              <h4 className="text-sm font-bold text-white">
+                💙 Support करा
+              </h4>
+              <p className="text-[10px] text-gray-400 mt-0.5">
+                App चा Server खर्च भागवण्यासाठी मदत करा
+              </p>
+            </div>
+            <div className="bg-blue-500 text-white text-[11px] font-bold px-3 py-1.5 rounded-xl flex items-center gap-1">
+              Donate <ChevronRight size={12} />
+            </div>
+          </div>
+        </button>
       </section>
 
       {/* Premium CTA */}

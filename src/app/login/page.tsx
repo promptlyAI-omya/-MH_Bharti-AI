@@ -54,7 +54,7 @@ function LoginContent() {
       },
     });
     if (error) {
-       setError(error.message);
+       setError("❌ काहीतरी चुकले. पुन्हा प्रयत्न करा.");
     } else {
        setError("Confirmation email पुन्हा पाठवला आहे. कृपया तपासा.");
     }
@@ -92,7 +92,7 @@ function LoginContent() {
 
     if (mode === "signup") {
       if (password.length < 6) {
-        setError("Password किमान 6 अक्षरांचा असावा");
+        setError("Password कमीत कमी 6 अक्षरे असावे");
         return;
       }
       if (password !== confirmPassword) {
@@ -104,7 +104,7 @@ function LoginContent() {
     setLoading(true);
     try {
       if (mode === "signup") {
-        const { data, error } = await supabase.auth.signUp({
+        const { data, error: authError } = await supabase.auth.signUp({
           email: email.trim(),
           password,
           options: {
@@ -112,42 +112,50 @@ function LoginContent() {
           },
         });
 
-        if (error) {
-          if (error.message.includes("already registered")) {
-            setError("हा Email आधीच नोंदणीकृत आहे. Login करा.");
-          } else {
-            setError(error.message);
+        if (authError) throw authError;
+
+        if (data.user) {
+          // Try manual insert as fallback (trigger will handle mainly)
+          const { error: dbError } = await supabase
+            .from("users")
+            .upsert(
+              {
+                id: data.user.id,
+                email: data.user.email,
+                name: email.split("@")[0],
+                plan: "free",
+                ai_credits: 3,
+                daily_question_count: 0,
+                leaderboard_points: 0,
+                is_donor: false,
+                donation_total: 0,
+                last_reset_date: new Date().toISOString(),
+                created_at: new Date().toISOString(),
+              },
+              {
+                onConflict: "id",
+                ignoreDuplicates: true,
+              }
+            );
+
+          if (dbError) {
+            console.log("DB insert note:", dbError.message);
           }
-        } else if (data.user) {
-          // Auto-create user profile
-          await supabase.from("users").upsert(
-            {
-              id: data.user.id,
-              name: data.user.user_metadata?.full_name || data.user.user_metadata?.name || data.user.email?.split("@")[0] || null,
-              plan: "free",
-              ai_credits: 5,
-              daily_question_count: 0,
-            },
-            { onConflict: "id" }
-          );
-          toast("Account यशस्वीरीत्या तयार झाले! MH_Bharti AI मध्ये आपले स्वागत आहे.");
+
+          toast("🎉 खाते तयार झाले! Welcome to MH_Bharti AI");
           router.push("/");
           router.refresh();
         }
       } else {
         // Login
-        const { data, error } = await supabase.auth.signInWithPassword({
+        const { data, error: authError } = await supabase.auth.signInWithPassword({
           email: email.trim(),
           password,
         });
 
-        if (error) {
-          if (error.message.includes("Email not confirmed")) {
-            setError("कृपया तुमचा email confirm करा");
-          } else {
-            setError("Email किंवा Password चुकीचे आहे");
-          }
-        } else if (data.user) {
+        if (authError) throw authError;
+
+        if (data.user) {
           // Fallback check to ensure user row exists
           await supabase.from("users").upsert(
             {
@@ -162,10 +170,22 @@ function LoginContent() {
           router.refresh();
         }
       }
-    } catch {
-      setError("काहीतरी चूक झाली. पुन्हा प्रयत्न करा.");
+    } catch (error: any) {
+      console.error(error);
+      if (error.message?.includes("already registered")) {
+        setError("❌ हा email आधीच वापरला आहे. Login करा.");
+      } else if (error.message?.includes("rate limit")) {
+        setError("⏳ खूप attempts झाले. 5 मिनिटे थांबा.");
+      } else if (error.message?.includes("invalid") || error.message?.includes("Invalid login credentials")) {
+        setError("❌ Email किंवा Password चुकीचे आहे");
+      } else if (error.message?.includes("Email not confirmed")) {
+        setError("कृपया तुमचा email confirm करा");
+      } else {
+        setError("❌ काहीतरी चुकले. पुन्हा प्रयत्न करा.");
+      }
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   // ── Magic Link ──
@@ -186,7 +206,7 @@ function LoginContent() {
       });
 
       if (error) {
-        setError(error.message);
+        setError("❌ काहीतरी चुकले. पुन्हा प्रयत्न करा.");
       } else {
         setMagicLinkSent(true);
       }

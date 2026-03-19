@@ -10,6 +10,7 @@ import {
   Loader2,
   AlertCircle,
   Clock,
+  Heart,
 } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/components/SupabaseProvider";
@@ -46,6 +47,7 @@ export default function MockTestPlayer() {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [startTime] = useState(Date.now());
+  const [showDonationPrompt, setShowDonationPrompt] = useState(false);
 
   const fetchQuestions = useCallback(async () => {
     try {
@@ -134,6 +136,15 @@ export default function MockTestPlayer() {
         // Continue even if save fails
       }
     }
+
+    // Trigger daily donation prompt softly after 1.5s
+    const today = new Date().toDateString();
+    const lastPrompt = localStorage.getItem("last_donation_prompt_date");
+    if (lastPrompt !== today) {
+      setTimeout(() => setShowDonationPrompt(true), 1500);
+      localStorage.setItem("last_donation_prompt_date", today);
+    }
+
     setSubmitting(false);
   }, [calculateScore, questions.length, startTime, testId, user, toast]);
 
@@ -314,9 +325,45 @@ export default function MockTestPlayer() {
           </div>
         </div>
 
-        <Link href="/mock-test" className="w-full btn-primary block text-center">
+        <Link href="/mock-test" className="w-full btn-primary block text-center mt-2">
           मॉक टेस्ट डॅशबोर्ड वर जा
         </Link>
+
+        {/* Donation Prompt Bottom Sheet */}
+        {showDonationPrompt && (
+          <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in">
+            <div className="w-full max-w-md bg-[#1a1a1a] border-t sm:border border-saffron/20 sm:rounded-2xl rounded-t-3xl p-6 shadow-[0_-10px_40px_-15px_rgba(255,107,0,0.15)] animate-slide-up transform transition-all pb-safe">
+              <div className="flex items-center gap-4 mb-5">
+                 <div className="p-3 bg-blue-500/10 rounded-2xl">
+                    <Heart size={28} className="text-blue-400 fill-blue-400" />
+                 </div>
+                 <div>
+                   <h3 className="text-lg font-bold text-white leading-tight">💙 App आवडला का?</h3>
+                   <p className="text-[11px] text-gray-400 mt-0.5">Server खर्चासाठी छोटी मदत करा</p>
+                 </div>
+              </div>
+              
+              <div className="grid grid-cols-3 gap-3 mb-4">
+                {[10, 30, 50].map((amt) => (
+                   <button 
+                     key={amt} 
+                     onClick={() => router.push("/support")}
+                     className="bg-dark-card border border-white/10 hover:border-saffron/50 hover:bg-saffron/10 text-white font-bold py-3.5 rounded-xl transition-all shadow-sm flex items-center justify-center"
+                   >
+                     ₹{amt}
+                   </button>
+                ))}
+              </div>
+              
+              <button 
+                onClick={() => setShowDonationPrompt(false)}
+                className="w-full py-3.5 bg-white/5 text-gray-400 text-sm font-medium rounded-xl hover:bg-white/10 hover:text-white transition-colors border border-transparent"
+              >
+                नको, पुढच्या वेळी
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     );
   }

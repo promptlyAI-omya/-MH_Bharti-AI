@@ -7,6 +7,7 @@ import { ToastProvider } from "@/components/ToastProvider";
 import SupabaseProvider from "@/components/SupabaseProvider";
 import StickyAIChatButton from "@/components/StickyAIChatButton";
 import GlobalAICredits from "@/components/GlobalAICredits";
+import BetaBanner from "@/components/BetaBanner";
 import { RAZORPAY_CHECKOUT_SRC } from "@/lib/razorpay-client";
 
 export const metadata: Metadata = {
@@ -39,7 +40,17 @@ export default function RootLayout({
           <ThemeProvider>
             <SupabaseProvider>
               <GlobalAICredits />
+              
+              {/* Persistent Beta Badge */}
+              <div className="absolute top-4 left-4 z-50 pointer-events-none opacity-80">
+                <div className="bg-saffron text-white text-[10px] font-bold px-2 py-1 rounded-full flex items-center gap-1 shadow-lg shadow-saffron/20">
+                  <span className="text-[10px]">🔧</span> Beta
+                </div>
+              </div>
+
               <main className="min-h-screen pb-20">{children}</main>
+              
+              <BetaBanner />
               <StickyAIChatButton />
               <BottomNav />
             </SupabaseProvider>

@@ -314,6 +314,24 @@ export default function HomePage() {
           </div>
         </section>
       )}
+
+      {/* ───────── Beta Support Card ───────── */}
+      <section className="mb-8 animate-slide-up" style={{ animationDelay: "0.6s" }}>
+        <div className="rounded-xl border border-white/10 p-4 bg-gradient-to-r from-dark-card to-black flex items-center justify-between gap-3 shadow-sm">
+          <div>
+            <div className="flex items-center gap-1.5 mb-1 text-gray-300">
+               <span className="text-[10px] bg-saffron/10 text-saffron px-1.5 py-0.5 rounded font-bold">🔧 Beta App</span>
+            </div>
+            <h4 className="text-sm font-bold text-white leading-tight">Server support करा</h4>
+            <p className="text-[10px] text-gray-500 mt-0.5">₹10 पासून सुरुवात</p>
+          </div>
+          <Link href="/support" className="flex-shrink-0">
+             <button className="bg-white/10 hover:bg-white/15 text-white text-xs font-bold py-2 px-3 rounded-lg border border-white/5 transition-colors flex items-center gap-1">
+               Support करा <ChevronRight size={12} className="text-gray-400" />
+             </button>
+          </Link>
+        </div>
+      </section>
     </div>
   );
 }
