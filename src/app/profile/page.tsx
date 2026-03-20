@@ -144,12 +144,6 @@ export default function ProfilePage() {
       return;
     }
 
-    const rzpKey = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
-    if (!rzpKey) {
-      toast("पेमेंट सध्या उपलब्ध नाही, कृपया नंतर प्रयत्न करा");
-      return;
-    }
-
     setPaymentLoading(true);
 
     try {

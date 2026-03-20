@@ -110,7 +110,7 @@ export default function QuizPage() {
       if (!data.orderId) throw new Error("Could not construct payment order");
 
       const options = {
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+        key: data.key_id || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
         amount: data.amount,
         currency: "INR",
         name: "MH Bharti AI",

@@ -27,7 +27,11 @@ export async function POST(req: Request) {
 
     const order = await razorpay.orders.create(options);
 
-    return NextResponse.json({ orderId: order.id, amount: options.amount });
+    return NextResponse.json({ 
+      orderId: order.id, 
+      amount: options.amount,
+      key_id: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID 
+    });
   } catch (error) {
     console.error("Donation processing error:", error);
     return NextResponse.json(

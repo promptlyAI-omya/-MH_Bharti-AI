@@ -22,7 +22,11 @@ export async function POST(req: NextRequest) {
     };
 
     const order = await razorpay.orders.create(options);
-    return NextResponse.json({ orderId: order.id, amount: options.amount });
+    return NextResponse.json({ 
+      orderId: order.id, 
+      amount: options.amount,
+      key_id: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID
+    });
   } catch (error) {
     console.error("Error creating credit order:", error);
     return NextResponse.json({ error: "Failed to create order" }, { status: 500 });
