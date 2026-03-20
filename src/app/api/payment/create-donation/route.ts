@@ -22,7 +22,7 @@ export async function POST(req: Request) {
     const options = {
       amount: amount * 100, // paise converter
       currency: "INR",
-      receipt: `donation_${userId}_${Date.now()}`,
+      receipt: `don_${String(userId).slice(0, 10)}_${Date.now()}`,
     };
 
     const order = await razorpay.orders.create(options);
