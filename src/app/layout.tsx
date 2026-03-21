@@ -11,11 +11,28 @@ import BetaBanner from "@/components/BetaBanner";
 import { RAZORPAY_CHECKOUT_SRC } from "@/lib/razorpay-client";
 
 export const metadata: Metadata = {
-// ... existing metadata ...
+  title: "MH_Bharti AI | महाराष्ट्राचं स्वतःचं Exam Prep AI",
+  description:
+    "Maharashtra government exam preparation with AI - Police Bharti, MPSC, Talathi, Gramsevak. AI-powered practice, mock tests, and smart analysis.",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "MH Bharti AI",
+  },
+  openGraph: {
+    title: "MH_Bharti AI",
+    description: "महाराष्ट्राचं स्वतःचं Exam Prep AI",
+    type: "website",
+  },
 };
 
 export const viewport: Viewport = {
-// ... existing viewport ...
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  themeColor: "#FF6B00",
 };
 
 export default function RootLayout({
