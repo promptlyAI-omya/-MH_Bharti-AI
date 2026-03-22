@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import Script from "next/script";
 import "./globals.css";
 import BottomNav from "@/components/BottomNav";
 import RazorpayBootstrap from "@/components/RazorpayBootstrap";
@@ -52,6 +53,19 @@ export default function RootLayout({
         />
       </head>
       <body className="antialiased text-white light-theme:text-gray-900 transition-colors duration-300">
+        <Script
+          strategy="afterInteractive"
+          src={'https://www.googletagmanager.com/gtag/js?id=G-1CBHZJRW9T'}
+        />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+
+            gtag('config', 'G-1CBHZJRW9T');
+          `}
+        </Script>
         <RazorpayBootstrap />
         <ToastProvider>
           <ThemeProvider>
