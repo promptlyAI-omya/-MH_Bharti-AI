@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="mr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Offline — MH_Bharti AI</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0F0F0F;
+      color: #fff;
+      font-family: system-ui, -apple-system, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 2rem;
+    }
+    .icon {
+      width: 80px;
+      height: 80px;
+      border-radius: 20px;
+      background: linear-gradient(135deg, #FF6B00 0%, #FF8F40 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 36px;
+      margin-bottom: 1.5rem;
+    }
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+    }
+    p {
+      color: #9CA3AF;
+      font-size: 0.9rem;
+      max-width: 300px;
+      line-height: 1.6;
+      margin-bottom: 2rem;
+    }
+    button {
+      background: linear-gradient(135deg, #FF6B00 0%, #FF8F40 100%);
+      color: #fff;
+      border: none;
+      padding: 0.85rem 2rem;
+      border-radius: 12px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 24px rgba(255, 107, 0, 0.3);
+    }
+    button:active { transform: scale(0.97); }
+  </style>
+</head>
+<body>
+  <div class="icon">⚡</div>
+  <h1>तुम्ही Offline आहात</h1>
+  <p>इंटरनेट कनेक्शन तपासा आणि पुन्हा प्रयत्न करा. MH_Bharti AI वापरण्यासाठी इंटरनेट आवश्यक आहे.</p>
+  <button onclick="window.location.reload()">पुन्हा प्रयत्न करा →</button>
+</body>
+</html>

@@ -102,6 +102,10 @@ function LoginContent() {
     }
 
     setLoading(true);
+    const timeout = setTimeout(() => {
+      setLoading(false);
+      setError("⏳ Request timeout — कृपया पुन्हा प्रयत्न करा.");
+    }, 15000);
     try {
       if (mode === "signup") {
         const { data, error: authError } = await supabase.auth.signUp({
@@ -192,6 +196,7 @@ function LoginContent() {
         setError("❌ काहीतरी चुकले. पुन्हा प्रयत्न करा.");
       }
     } finally {
+      clearTimeout(timeout);
       setLoading(false);
     }
   };
@@ -317,7 +322,10 @@ function LoginContent() {
                   className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
                 />
                 <input
+                  id="magic-email"
+                  name="email"
                   type="email"
+                  autoComplete="email"
                   placeholder="email@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -366,7 +374,10 @@ function LoginContent() {
                   className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
                 />
                 <input
+                  id="email"
+                  name="email"
                   type="email"
+                  autoComplete="email"
                   placeholder="email@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -381,7 +392,10 @@ function LoginContent() {
                   className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
                 />
                 <input
+                  id="password"
+                  name="password"
                   type={showPassword ? "text" : "password"}
+                  autoComplete={mode === "signup" ? "new-password" : "current-password"}
                   placeholder="Password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -404,7 +418,10 @@ function LoginContent() {
                     className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
                   />
                   <input
+                    id="confirm-password"
+                    name="confirm-password"
                     type={showPassword ? "text" : "password"}
+                    autoComplete="new-password"
                     placeholder="Confirm Password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}

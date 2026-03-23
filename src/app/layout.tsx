@@ -9,7 +9,7 @@ import SupabaseProvider from "@/components/SupabaseProvider";
 import StickyAIChatButton from "@/components/StickyAIChatButton";
 import GlobalAICredits from "@/components/GlobalAICredits";
 import BetaBanner from "@/components/BetaBanner";
-import { RAZORPAY_CHECKOUT_SRC } from "@/lib/razorpay-client";
+
 
 export const metadata: Metadata = {
   title: "MH_Bharti AI | महाराष्ट्राचं स्वतःचं Exam Prep AI",
@@ -45,12 +45,6 @@ export default function RootLayout({
     <html lang="mr">
       <head>
         <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
-        <link rel="preload" href={RAZORPAY_CHECKOUT_SRC} as="script" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta
-          name="apple-mobile-web-app-status-bar-style"
-          content="black-translucent"
-        />
       </head>
       <body className="antialiased text-white light-theme:text-gray-900 transition-colors duration-300">
         <Script
@@ -67,6 +61,15 @@ export default function RootLayout({
           `}
         </Script>
         <RazorpayBootstrap />
+        <Script id="sw-register" strategy="afterInteractive">
+          {`
+            if ('serviceWorker' in navigator) {
+              window.addEventListener('load', function() {
+                navigator.serviceWorker.register('/sw.js').catch(function() {});
+              });
+            }
+          `}
+        </Script>
         <ToastProvider>
           <ThemeProvider>
             <SupabaseProvider>
