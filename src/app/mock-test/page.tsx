@@ -9,6 +9,7 @@ import {
   Star,
   ChevronRight,
   Zap,
+  Sparkles,
 } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/components/SupabaseProvider";
@@ -135,6 +136,34 @@ export default function MockTestPage() {
           <p className="text-[10px] text-gray-400">सरासरी स्कोर</p>
         </div>
       </div>
+
+      {/* AI-Powered Mock Test */}
+      <section className="mb-5">
+        <Link href="/mock-test/ai-mock">
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-violet-600 via-purple-700 to-indigo-900 p-5 card-hover">
+            <div className="absolute top-0 right-0 w-28 h-28 bg-white/5 rounded-full blur-3xl" />
+            <div className="absolute bottom-0 left-0 w-16 h-16 bg-saffron/10 rounded-full blur-2xl" />
+            <div className="relative">
+              <div className="flex items-center gap-2 mb-2">
+                <Sparkles size={16} className="text-yellow-300" />
+                <span className="text-xs font-bold text-yellow-200/80">
+                  AI-Powered ⚡
+                </span>
+              </div>
+              <h3 className="text-base font-bold text-white mb-1">
+                AI Mock Test 🤖
+              </h3>
+              <p className="text-[11px] text-white/60 mb-3">
+                विषय निवडा → AI कठीण प्रश्न तयार करेल → 25 प्रश्न · 20 मिनिटे
+              </p>
+              <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm text-white font-bold text-xs px-5 py-2 rounded-xl border border-white/20">
+                विषय निवडा
+                <ChevronRight size={14} />
+              </div>
+            </div>
+          </div>
+        </Link>
+      </section>
 
       {/* Featured Test */}
       <section className="mb-5">

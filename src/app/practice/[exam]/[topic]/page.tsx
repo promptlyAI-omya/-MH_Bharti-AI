@@ -273,6 +273,15 @@ export default function QuizPage() {
       setScore((prev) => ({ ...prev, wrong: prev.wrong + 1 }));
     }
 
+    // Deduct 1 AI credit per answered question for AI topics
+    if (isAITopic && user) {
+      fetch("/api/deduct-credit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: user.id })
+      }).then(() => refreshProfile()).catch(() => {});
+    }
+
     // --- Track Question History ---
     if (currentQuestion && !currentQuestion.is_ai_variation) {
       if (user) {
@@ -505,24 +514,35 @@ export default function QuizPage() {
           </div>
         ) : (
           <div className="space-y-5 animate-fade-in">
-            {/* Concept Box */}
+            {/* Concept Box - Detailed */}
             <div className="glass rounded-2xl p-5 border border-dark-border">
-              <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-2">
+              <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
                 <BookOpen size={14} /> संकल्पना (Concept)
               </h3>
-              <p className="text-sm text-white leading-relaxed whitespace-pre-line">
-                {topicContent.concept_marathi}
-              </p>
+              <div className="text-sm text-white leading-relaxed whitespace-pre-line space-y-3">
+                <p>{topicContent.concept_marathi}</p>
+              </div>
+              <div className="mt-4 pt-3 border-t border-dark-border/50">
+                <h4 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">📌 मुख्य मुद्दे</h4>
+                <ul className="space-y-1.5">
+                  {topicContent.concept_marathi.split('\n').filter(line => line.trim().length > 10).slice(0, 4).map((point, i) => (
+                    <li key={i} className="flex items-start gap-2 text-xs text-gray-300">
+                      <span className="w-1.5 h-1.5 rounded-full bg-saffron mt-1.5 flex-shrink-0" />
+                      <span>{point.trim().slice(0, 80)}{point.trim().length > 80 ? '...' : ''}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
 
-            {/* Trick Box */}
+            {/* Trick Box - Detailed with steps */}
             <div className="glass rounded-2xl p-5 border border-saffron/30 bg-saffron/5 shadow-[0_0_15px_rgba(255,107,0,0.05)]">
-               <h3 className="text-xs font-bold text-saffron uppercase tracking-wider mb-2 flex items-center gap-2">
-                <Sparkles size={14} /> शार्टकट / सूत्र (Trick)
+              <h3 className="text-xs font-bold text-saffron uppercase tracking-wider mb-3 flex items-center gap-2">
+                <Sparkles size={14} /> 🎯 शार्टकट / सूत्र (Trick)
               </h3>
-              <p className="text-sm text-white leading-relaxed font-medium whitespace-pre-line">
+              <div className="text-sm text-white leading-relaxed font-medium whitespace-pre-line">
                 {topicContent.trick_marathi}
-              </p>
+              </div>
             </div>
 
             {/* SVG Visual */}
@@ -532,13 +552,33 @@ export default function QuizPage() {
               </div>
             )}
 
-            {/* Ask AI Button */}
+            {/* Enhanced AI CTA Card */}
+            <div className="relative overflow-hidden rounded-2xl border border-saffron/20 bg-gradient-to-br from-saffron/10 via-dark-card to-dark-card p-5">
+              <div className="absolute top-0 right-0 w-20 h-20 bg-saffron/5 rounded-full blur-2xl" />
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-8 h-8 rounded-lg bg-saffron/20 flex items-center justify-center">
+                  <Sparkles size={16} className="text-saffron" />
+                </div>
+                <h3 className="text-sm font-bold text-white">🎓 अजून शिकायचे आहे?</h3>
+              </div>
+              <p className="text-xs text-gray-400 mb-4 leading-relaxed">
+                AI चा वापर करून या विषयाबद्दल सविस्तर माहिती मिळवा. तुमचे शंका विचारा, AI तुम्हाला मदत करेल.
+              </p>
+              <button
+                onClick={() => openAIChat(`${topic} मला अजून विस्तृतपणे समजावून सांगा, सविस्तर उदाहरणांसह`)}
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-saffron/20 border border-saffron/30 text-saffron text-sm font-bold hover:bg-saffron/30 transition-colors"
+              >
+                {profile?.ai_credits === 0 ? <Lock size={16} /> : <MessageCircle size={16} />}
+                {profile?.ai_credits === 0 ? "AI Credits संपले" : `AI ला विचारा (${profile?.ai_credits || 0}/${profile?.plan === 'premium' ? 50 : 10})`}
+              </button>
+            </div>
+
+            {/* Go to Practice CTA */}
             <button
-              onClick={() => openAIChat(`${topic} मला अजून विस्तृतपणे समजावून सांगा`)}
-              className="w-full mt-4 flex items-center justify-center gap-2 py-3.5 rounded-xl border border-saffron/30 text-saffron text-sm font-bold bg-dark-card hover:bg-saffron/10 transition-colors disabled:opacity-50"
+              onClick={() => setActiveTab("practice")}
+              className="w-full btn-primary py-3 text-sm font-bold flex items-center justify-center gap-2"
             >
-              {profile?.ai_credits === 0 ? <Lock size={18} /> : <MessageCircle size={18} />}
-              {profile?.ai_credits === 0 ? "AI Credits संपले" : `AI ला विचारा (${profile?.ai_credits || 0}/${profile?.plan === 'premium' ? 50 : 10})`}
+              <PenTool size={14} /> समजले? सराव सुरू करा →
             </button>
           </div>
         )}

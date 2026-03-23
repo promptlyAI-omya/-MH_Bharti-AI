@@ -220,13 +220,7 @@ export async function POST(req: NextRequest) {
     const finalMixedQuestions = [...fallbackQuestions, ...generatedQuestions];
     const pickedQuestions = shuffleAndPick(finalMixedQuestions, finalCount);
 
-    // 4. Deduct the exact number of fetched questions from user ai_credits
-    if (pickedQuestions.length > 0) {
-        await supabase
-          .from("users")
-          .update({ ai_credits: userData.ai_credits - pickedQuestions.length })
-          .eq("id", userId);
-    }
+    // Credits are now deducted per-question when user answers (via /api/deduct-credit)
 
     // Shuffle once more to blend them seamlessly
     return NextResponse.json({ 
