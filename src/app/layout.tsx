@@ -1,15 +1,41 @@
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
+import { Noto_Sans_Devanagari, Inter } from "next/font/google";
 import "./globals.css";
 import BottomNav from "@/components/BottomNav";
-import RazorpayBootstrap from "@/components/RazorpayBootstrap";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { ToastProvider } from "@/components/ToastProvider";
 import SupabaseProvider from "@/components/SupabaseProvider";
-import StickyAIChatButton from "@/components/StickyAIChatButton";
-import GlobalAICredits from "@/components/GlobalAICredits";
-import BetaBanner from "@/components/BetaBanner";
+import dynamic from "next/dynamic";
 
+// ── Lazy-loaded non-critical layout components ──
+const StickyAIChatButton = dynamic(
+  () => import("@/components/StickyAIChatButton"),
+  { ssr: false }
+);
+const GlobalAICredits = dynamic(
+  () => import("@/components/GlobalAICredits"),
+  { ssr: false }
+);
+const BetaBanner = dynamic(
+  () => import("@/components/BetaBanner"),
+  { ssr: false }
+);
+
+// ── Optimized fonts via next/font (non-blocking, auto font-display:swap) ──
+const notoSansDevanagari = Noto_Sans_Devanagari({
+  subsets: ["devanagari", "latin"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
+  variable: "--font-noto",
+});
+
+const inter = Inter({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
+  variable: "--font-inter",
+});
 
 export const metadata: Metadata = {
   title: "MH_Bharti AI | महाराष्ट्राचं स्वतःचं Exam Prep AI",
@@ -42,31 +68,29 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="mr">
+    <html lang="mr" className={`${notoSansDevanagari.variable} ${inter.variable}`}>
       <head>
         <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
       </head>
       <body className="antialiased text-white light-theme:text-gray-900 transition-colors duration-300">
+        {/* Google Analytics — delayed via lazyOnload for performance */}
         <Script
-          strategy="afterInteractive"
+          strategy="lazyOnload"
           src={'https://www.googletagmanager.com/gtag/js?id=G-1CBHZJRW9T'}
         />
-        <Script id="google-analytics" strategy="afterInteractive">
+        <Script id="google-analytics" strategy="lazyOnload">
           {`
             window.dataLayer = window.dataLayer || [];
             function gtag(){dataLayer.push(arguments);}
             gtag('js', new Date());
-
             gtag('config', 'G-1CBHZJRW9T');
           `}
         </Script>
-        <RazorpayBootstrap />
-        <Script id="sw-register" strategy="afterInteractive">
+        {/* Service worker registration */}
+        <Script id="sw-register" strategy="lazyOnload">
           {`
             if ('serviceWorker' in navigator) {
-              window.addEventListener('load', function() {
-                navigator.serviceWorker.register('/sw.js').catch(function() {});
-              });
+              navigator.serviceWorker.register('/sw.js').catch(function() {});
             }
           `}
         </Script>
