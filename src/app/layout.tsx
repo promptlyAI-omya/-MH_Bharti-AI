@@ -70,6 +70,7 @@ export default function RootLayout({
   return (
     <html lang="mr" className={`${notoSansDevanagari.variable} ${inter.variable}`}>
       <head>
+        <meta name="google-site-verification" content="ORmPCVlplk1O3K23jK4Fue6Y3vjD3uP5O-NwpceEGRU" />
         <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
       </head>
       <body className="antialiased text-white light-theme:text-gray-900 transition-colors duration-300">
