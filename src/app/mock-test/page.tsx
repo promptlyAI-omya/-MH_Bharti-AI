@@ -12,7 +12,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import Link from "next/link";
-import { useAuth } from "@/components/SupabaseProvider";
+import { useAuth } from "@/components/FirebaseAuthProvider";
 
 const mockTests = [
   {

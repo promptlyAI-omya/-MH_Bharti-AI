@@ -164,10 +164,10 @@ export default function SettingsPage() {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-white">App Version</p>
-                  <p className="text-[10px] text-gray-500">Build 1.1.0</p>
+                  <p className="text-[10px] text-gray-500">Build 1.2.0</p>
                 </div>
               </div>
-              <span className="text-xs font-mono text-gray-500 bg-dark-bg px-2 py-1 rounded">v1.1.0</span>
+              <span className="text-xs font-mono text-gray-500 bg-dark-bg px-2 py-1 rounded">v1.2.0</span>
             </div>
             
             <Link href="/terms" className="flex items-center justify-between p-4 hover:bg-white/5 transition-colors text-left">

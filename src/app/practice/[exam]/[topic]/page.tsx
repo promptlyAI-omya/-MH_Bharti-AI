@@ -20,10 +20,8 @@ import {
   Lock,
 } from "lucide-react";
 import Link from "next/link";
-import { useAuth } from "@/components/SupabaseProvider";
+import { useAuth } from "@/components/FirebaseAuthProvider";
 import { useToast } from "@/components/ToastProvider";
-import { supabase } from "@/lib/supabase";
-
 interface Question {
   id: string;
   question_marathi: string;
@@ -61,7 +59,7 @@ type TabType = "learn" | "example" | "practice";
 export default function QuizPage() {
   const params = useParams();
   const router = useRouter();
-  const { user, profile, loading, refreshProfile } = useAuth();
+  const { user, profile, loading, refreshProfile, updateProfile } = useAuth();
   const { toast } = useToast();
   const [isBuying, setIsBuying] = useState(false);
   const exam = decodeURIComponent(params.exam as string);
@@ -279,7 +277,16 @@ export default function QuizPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: user.id })
-      }).then(() => refreshProfile()).catch(() => {});
+      })
+        .then(async (res) => {
+          const data = await res.json();
+          if (res.ok && typeof data.remaining === "number") {
+            updateProfile({ ai_credits: data.remaining });
+          } else {
+            await refreshProfile();
+          }
+        })
+        .catch(() => {});
     }
 
     // --- Track Question History ---
@@ -349,10 +356,11 @@ export default function QuizPage() {
 
           // If it's an AI Topic, add 15 points
           if (isAITopic) {
-            const { data: userData } = await supabase.from('users').select('points').eq('id', user.id).single();
-            if (userData) {
-              await supabase.from('users').update({ points: (userData.points || 0) + 15 }).eq('id', user.id);
-            }
+            await fetch("/api/users/add-points", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ userId: user.id, points: 15 })
+            });
           }
         } catch {
           // Silently fail
@@ -368,11 +376,7 @@ export default function QuizPage() {
     }
 
     try {
-      const { data: userData } = await supabase
-        .from("users")
-        .select("ai_credits, plan")
-        .eq("id", user.id)
-        .single();
+      const userData = profile;
       
       if (!userData || userData.ai_credits <= 0) {
         setUpgradeModalContent({
@@ -383,11 +387,6 @@ export default function QuizPage() {
         setShowUpgradeModal(true);
         return;
       }
-
-      await supabase
-        .from("users")
-        .update({ ai_credits: userData.ai_credits - 1 })
-        .eq("id", user.id);
 
       const encodedContext = encodeURIComponent(
         `Context: ${topicContent?.concept_marathi || ''}\nTrick: ${topicContent?.trick_marathi || ''}\nQuestion: ${customPrompt}`

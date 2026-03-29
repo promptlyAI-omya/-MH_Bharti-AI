@@ -1,11 +1,57 @@
-// Trigger rebuild
 import { NextRequest, NextResponse } from "next/server";
 import Groq from "groq-sdk";
-import { createServerClient } from "@/lib/supabase";
+import { sql } from "@/lib/db";
 
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
 });
+
+async function persistMockQuestion(question: Record<string, unknown>) {
+  try {
+    await sql`
+      INSERT INTO questions (
+        exam, topic, question_marathi, options, correct_answer,
+        explanation_marathi, trick_used, difficulty, is_ai_variation, svg_visual
+      ) VALUES (
+        ${String(question.exam || "police")},
+        ${String(question.topic || "")},
+        ${String(question.question_marathi || "")},
+        ${question.options as Record<string, string>},
+        ${String(question.correct_answer || "")},
+        ${String(question.explanation_marathi || "")},
+        ${question.trick_used ? String(question.trick_used) : null},
+        ${String(question.difficulty || "कठीण")},
+        true,
+        ${question.svg_visual ? String(question.svg_visual) : null}
+      )
+    `;
+  } catch (insertError: unknown) {
+    const message = insertError instanceof Error ? insertError.message : String(insertError);
+    const isSchemaMismatch =
+      message.includes('column "trick_used"') ||
+      message.includes('column "svg_visual"');
+
+    if (!isSchemaMismatch) {
+      throw insertError;
+    }
+
+    await sql`
+      INSERT INTO questions (
+        exam, topic, question_marathi, options, correct_answer,
+        explanation_marathi, difficulty, is_ai_variation
+      ) VALUES (
+        ${String(question.exam || "police")},
+        ${String(question.topic || "")},
+        ${String(question.question_marathi || "")},
+        ${question.options as Record<string, string>},
+        ${String(question.correct_answer || "")},
+        ${String(question.explanation_marathi || "")},
+        ${String(question.difficulty || "कठीण")},
+        true
+      )
+    `;
+  }
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,33 +64,23 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const supabase = createServerClient();
+    const users = await sql`SELECT ai_credits FROM users WHERE id = ${userId}`;
+    const userData = users?.length > 0 ? users[0] : null;
 
-    // Verify user has AI credits
-    const { data: userData, error: userError } = await supabase
-      .from("users")
-      .select("ai_credits")
-      .eq("id", userId)
-      .single();
-
-    if (userError || !userData) {
-      console.error("User lookup failed:", userError, "for ID:", userId);
-      return NextResponse.json({ error: "User not found", details: userError, userId }, { status: 404 });
+    if (!userData) {
+      console.error("User lookup failed for ID:", userId);
+      return NextResponse.json({ error: "User not found", userId }, { status: 404 });
     }
 
     if (userData.ai_credits <= 0) {
       return NextResponse.json({ error: "Insufficient AI credits" }, { status: 403 });
     }
 
-    // Limit generation based on available credits
     const finalCount = Math.min(count, userData.ai_credits);
-
-    // Distribute questions across subjects evenly
     const perSubject = Math.floor(finalCount / subjects.length);
     const remainder = finalCount % subjects.length;
+    const allQuestions: Record<string, unknown>[] = [];
 
-    const allQuestions = [];
-    
     for (let i = 0; i < subjects.length; i++) {
       const subjectCount = perSubject + (i < remainder ? 1 : 0);
       const subject = subjects[i];
@@ -88,7 +124,7 @@ export async function POST(req: NextRequest) {
 
         const responseText = completion.choices[0]?.message?.content || "[]";
 
-        let parsed = [];
+        let parsed: Record<string, unknown>[] = [];
         try {
           const cleanJson = responseText.replace(/```json/g, "").replace(/```/g, "").trim();
           parsed = JSON.parse(cleanJson);
@@ -102,7 +138,6 @@ export async function POST(req: NextRequest) {
         }
       } catch (err) {
         console.error(`Groq error for ${subject}:`, err);
-        continue;
       }
     }
 
@@ -113,28 +148,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Save all generated questions permanently to DB for future reuse
-    const toInsert = allQuestions.map((q) => ({
-      exam: q.exam || "police",
-      topic: q.topic,
-      question_marathi: q.question_marathi,
-      options: q.options,
-      correct_answer: q.correct_answer,
-      explanation_marathi: q.explanation_marathi,
-      trick_used: q.trick_used,
-      difficulty: q.difficulty || "कठीण",
-      is_ai_variation: true,
-      svg_visual: q.svg_visual || null,
-    }));
-
-    const { error: insertError } = await supabase.from("questions").insert(toInsert);
-    if (insertError) {
-      console.error("Failed to insert mock questions to DB:", insertError);
+    for (const question of allQuestions) {
+      try {
+        await persistMockQuestion(question);
+      } catch (insertError: unknown) {
+        console.error("Failed to insert mock questions to DB:", insertError);
+      }
     }
 
-    // Credits are deducted per-question when user answers (via /api/deduct-credit)
-
-    // Shuffle questions for randomness
     const shuffled = [...allQuestions].sort(() => 0.5 - Math.random());
 
     return NextResponse.json({

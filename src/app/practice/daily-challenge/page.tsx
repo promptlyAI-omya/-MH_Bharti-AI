@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-
 import {
   ArrowLeft,
   CheckCircle2,
@@ -13,8 +12,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import Link from "next/link";
-import { useAuth } from "@/components/SupabaseProvider";
-import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/components/FirebaseAuthProvider";
 import { useToast } from "@/components/ToastProvider";
 
 interface Question {
@@ -85,22 +83,12 @@ export default function DailyChallengePage() {
       if (user && !pointsAwarded) {
         setPointsAwarded(true);
         try {
-          // Fetch current points safely
-          const { data: userData } = await supabase
-            .from("users")
-            .select("leaderboard_points")
-            .eq("id", user.id)
-            .single();
-
-          const currentPoints = userData?.leaderboard_points || 0;
-
-          // Award 10 points
-          const { error: updateError } = await supabase
-            .from("users")
-            .update({ leaderboard_points: currentPoints + 10 })
-            .eq("id", user.id);
-
-          if (!updateError) {
+          const res = await fetch("/api/users/add-points", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ userId: user.id, points: 10 }),
+          });
+          if (res.ok) {
             toast("🏆 +10 गुण मिळाले!");
           }
         } catch (err) {
@@ -194,7 +182,7 @@ export default function DailyChallengePage() {
               />
             </svg>
             <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-2xl font-bold text-white">{percentage}%</span>
+               <span className="text-2xl font-bold text-white">{percentage}%</span>
             </div>
           </div>
 

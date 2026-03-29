@@ -14,7 +14,7 @@ import {
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect } from "react";
-import { useAuth } from "@/components/SupabaseProvider";
+import { useAuth } from "@/components/FirebaseAuthProvider";
 
 const topics = [
   {

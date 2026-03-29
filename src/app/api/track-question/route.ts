@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@/lib/supabase";
+import { sql } from "@/lib/db";
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,35 +13,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const supabase = createServerClient();
-
-    // Fetch existing record if any to increment attempts
-    const { data: existing } = await supabase
-      .from("user_question_history")
-      .select("attempts")
-      .eq("user_id", user_id)
-      .eq("question_id", question_id)
-      .single();
-
-    const attempts = existing ? existing.attempts + 1 : 1;
-
     // Upsert the tracking record
-    const { error } = await supabase
-      .from("user_question_history")
-      .upsert({
-        user_id,
-        question_id,
-        correct: is_correct,
-        attempts,
-        last_seen_at: new Date().toISOString()
-      }, {
-        onConflict: "user_id, question_id"
-      });
-
-    if (error) {
-       console.error("Track question error:", error);
-       return NextResponse.json({ error: error.message }, { status: 500 });
-    }
+    await sql`
+      INSERT INTO user_question_history (user_id, question_id, correct, attempts, last_seen_at)
+      VALUES (${user_id}, ${question_id}, ${is_correct}, 1, NOW())
+      ON CONFLICT (user_id, question_id) 
+      DO UPDATE SET 
+        correct = EXCLUDED.correct,
+        attempts = user_question_history.attempts + 1,
+        last_seen_at = NOW();
+    `;
 
     return NextResponse.json({ success: true });
   } catch (error) {

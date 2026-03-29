@@ -1,7 +1,16 @@
 "use client";
 
-import { useState, Suspense } from "react";
-import { supabase } from "@/lib/supabase";
+import { useState, Suspense, useEffect } from "react";
+import {
+  signUpWithEmail,
+  loginWithEmail,
+  loginWithGoogle,
+  setupRecaptcha,
+  sendPhoneCode,
+  verifyPhoneCode
+} from "@/lib/auth";
+import { RecaptchaVerifier } from "firebase/auth";
+import type { ConfirmationResult } from "firebase/auth";
 import {
   Zap,
   Mail,
@@ -10,13 +19,13 @@ import {
   EyeOff,
   ArrowLeft,
   Loader2,
-  Sparkles,
+  Phone
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useToast } from "@/components/ToastProvider";
 
-type AuthMode = "login" | "signup" | "magic-link";
+type AuthMode = "login" | "signup" | "phone";
 
 export default function LoginPage() {
   return (
@@ -36,43 +45,48 @@ function LoginContent() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [phone, setPhone] = useState("+91");
+  const [otp, setOtp] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
+  const [recaptchaVerifier, setRecaptchaVerifier] = useState<RecaptchaVerifier | null>(null);
+
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(
     urlError === "auth_failed" ? "Login अयशस्वी. कृपया पुन्हा प्रयत्न करा." : ""
   );
-  const [magicLinkSent, setMagicLinkSent] = useState(false);
 
-  const handleResendConfirm = async () => {
-    setError("");
-    setLoading(true);
-    const { error } = await supabase.auth.resend({
-      type: 'signup',
-      email: email.trim(),
-      options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-      },
-    });
-    if (error) {
-       setError("❌ काहीतरी चुकले. पुन्हा प्रयत्न करा.");
-    } else {
-       setError("Confirmation email पुन्हा पाठवला आहे. कृपया तपासा.");
+  useEffect(() => {
+    // Initialize recaptcha when in phone mode
+    if (mode === "phone" && !recaptchaVerifier) {
+      try {
+        const verifier = setupRecaptcha("recaptcha-container");
+        setRecaptchaVerifier(verifier);
+      } catch (err) {
+        console.error("Recaptcha setup error:", err);
+      }
     }
-    setLoading(false);
-  };
+  }, [mode, recaptchaVerifier]);
 
   // ── Google OAuth ──
   const handleGoogleLogin = async () => {
     setError("");
     setLoading(true);
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
-    });
-    if (error) {
-      setError("Google Login अयशस्वी. पुन्हा प्रयत्न करा.");
+    try {
+      await loginWithGoogle();
+      toast("यशस्वीरीत्या Login केले!");
+      router.push("/");
+      router.refresh();
+    } catch (e) {
+      const error = e as { code?: string };
+      console.error(error);
+      if (error.code === 'auth/popup-closed-by-user') {
+        setError("Login रद्द केले.");
+      } else {
+        setError("Google Login अयशस्वी. पुन्हा प्रयत्न करा.");
+      }
+    } finally {
       setLoading(false);
     }
   };
@@ -102,131 +116,93 @@ function LoginContent() {
     }
 
     setLoading(true);
-    const timeout = setTimeout(() => {
-      setLoading(false);
-      setError("⏳ Request timeout — कृपया पुन्हा प्रयत्न करा.");
-    }, 15000);
     try {
       if (mode === "signup") {
-        const { data, error: authError } = await supabase.auth.signUp({
-          email: email.trim(),
-          password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/auth/callback`,
-          },
-        });
-
-        if (authError) throw authError;
-
-        if (data.user) {
-          // Try manual insert as fallback (trigger will handle mainly)
-          const { error: dbError } = await supabase
-            .from("users")
-            .upsert(
-              {
-                id: data.user.id,
-                email: data.user.email,
-                name: email.split("@")[0],
-                plan: "free",
-                ai_credits: 3,
-                daily_question_count: 0,
-                leaderboard_points: 0,
-                is_donor: false,
-                donation_total: 0,
-                last_reset_date: new Date().toISOString(),
-                created_at: new Date().toISOString(),
-              },
-              {
-                onConflict: "id",
-                ignoreDuplicates: true,
-              }
-            );
-
-          if (dbError) {
-            console.log("DB insert note:", dbError.message);
-          }
-
-          if (!data.session) {
-            toast("⚠️ Verification link तुमच्या Email वर पाठवली आहे. कृपया check करा.");
-            setMode("login");
-            setPassword("");
-            setConfirmPassword("");
-          } else {
-            toast("🎉 खाते तयार झाले! Welcome to MH_Bharti AI");
-            router.push("/");
-            router.refresh();
-          }
-        }
+        await signUpWithEmail(email.trim(), password);
+        toast("🎉 खाते तयार झाले! Welcome to MH_Bharti AI");
+        router.push("/");
+        router.refresh();
       } else {
         // Login
-        const { data, error: authError } = await supabase.auth.signInWithPassword({
-          email: email.trim(),
-          password,
-        });
-
-        if (authError) throw authError;
-
-        if (data.user) {
-          // Fallback check to ensure user row exists
-          await supabase.from("users").upsert(
-            {
-              id: data.user.id,
-              name: data.user.user_metadata?.full_name || data.user.user_metadata?.name || data.user.email?.split("@")[0] || null,
-              plan: "free",
-            },
-            { onConflict: "id", ignoreDuplicates: true }
-          );
-          toast("यशस्वीरीत्या Login केले!");
-          router.push("/");
-          router.refresh();
-        }
+        await loginWithEmail(email.trim(), password);
+        toast("यशस्वीरीत्या Login केले!");
+        router.push("/");
+        router.refresh();
       }
-    } catch (error) {
+    } catch (e) {
+      const error = e as { code?: string };
       console.error(error);
-      const err = error as Error;
-      if (err.message?.includes("already registered")) {
+      if (error.code === 'auth/email-already-in-use') {
         setError("❌ हा email आधीच वापरला आहे. Login करा.");
-      } else if (err.message?.includes("rate limit")) {
-        setError("⏳ खूप attempts झाले. 5 मिनिटे थांबा.");
-      } else if (err.message?.includes("invalid") || err.message?.includes("Invalid login credentials")) {
+      } else if (error.code === 'auth/too-many-requests') {
+        setError("⏳ खूप attempts झाले. थोड्या वेळाने प्रयत्न करा.");
+      } else if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found') {
         setError("❌ Email किंवा Password चुकीचे आहे");
-      } else if (err.message?.includes("Email not confirmed")) {
-        setError("कृपया तुमचा email confirm करा");
       } else {
         setError("❌ काहीतरी चुकले. पुन्हा प्रयत्न करा.");
       }
     } finally {
-      clearTimeout(timeout);
       setLoading(false);
     }
   };
 
-  // ── Magic Link ──
-  const handleMagicLink = async () => {
+  // ── Phone Auth ──
+  const handleSendOtp = async () => {
     setError("");
-    if (!email.trim()) {
-      setError("हे field भरणे आवश्यक आहे");
+    if (!phone || phone.length < 10) {
+      setError("कृपया योग्य मोबाईल नंबर टाका");
       return;
     }
 
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithOtp({
-        email: email.trim(),
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
-        },
-      });
-
-      if (error) {
-        setError("❌ काहीतरी चुकले. पुन्हा प्रयत्न करा.");
+      if (!recaptchaVerifier) throw new Error("Recaptcha not initialized");
+      
+      const result = await sendPhoneCode(phone, recaptchaVerifier);
+      setConfirmationResult(result);
+      setOtpSent(true);
+      toast("OTP पाठवला आहे!");
+    } catch (e) {
+      const error = e as { code?: string };
+      console.error("OTP Error:", error);
+      if (error.code === 'auth/invalid-phone-number') {
+        setError("मोबाईल नंबर चुकीचा आहे. (उदा: +919876543210)");
       } else {
-        setMagicLinkSent(true);
+        setError("कधीतरी चूक झाली. पुन्हा प्रयत्न करा.");
       }
-    } catch {
-      setError("काहीतरी चूक झाली. पुन्हा प्रयत्न करा.");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
+  };
+
+  const handleVerifyOtp = async () => {
+    setError("");
+    if (!otp || otp.length !== 6) {
+      setError("कृपया 6-अंकी OTP टाका");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      if (!confirmationResult) throw new Error("No confirmation result");
+      await verifyPhoneCode(confirmationResult, otp);
+      
+      toast("यशस्वीरीत्या Login केले!");
+      router.push("/");
+      router.refresh();
+    } catch (e) {
+      const error = e as { code?: string };
+      console.error("Verify Error:", error);
+      if (error.code === 'auth/invalid-verification-code') {
+        setError("OTP चुकीचा आहे.");
+      } else if (error.code === 'auth/code-expired') {
+        setError("OTP expired झाला आहे. पुन्हा प्रयत्न करा.");
+      } else {
+        setError("काहीतरी चूक झाली. पुन्हा प्रयत्न करा.");
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -278,81 +254,107 @@ function LoginContent() {
           <div className="flex-1 h-px bg-dark-border" />
         </div>
 
-        {/* ── Email Form Card ── */}
+        {/* ── Form Card ── */}
         <div className="w-full glass rounded-2xl p-5 animate-slide-up" style={{ animationDelay: "0.1s" }}>
-          {/* Magic Link Success */}
-          {magicLinkSent ? (
-            <div className="text-center py-4">
-              <div className="w-14 h-14 rounded-2xl bg-green-500/10 flex items-center justify-center mx-auto mb-3">
-                <Sparkles size={24} className="text-green-400" />
-              </div>
-              <h3 className="text-sm font-bold text-white mb-1">
-                Email पाठवला! ✉️
-              </h3>
-              <p className="text-xs text-gray-400 mb-4">
-                <span className="text-saffron">{email}</span> वर magic link
-                पाठवला आहे. कृपया तुमचा email तपासा.
-              </p>
-              <button
-                onClick={() => {
-                  setMagicLinkSent(false);
-                  setMode("login");
-                }}
-                className="text-xs text-saffron hover:underline"
-              >
-                ← मागे जा
-              </button>
-            </div>
-          ) : mode === "magic-link" ? (
-            /* ── Magic Link Form ── */
+          {/* Recaptcha container for Phone Auth */}
+          <div id="recaptcha-container"></div>
+
+          {mode === "phone" ? (
+            /* ── Phone Auth Form ── */
             <>
               <div className="flex items-center gap-2 mb-4">
-                <Mail size={18} className="text-saffron" />
+                <Phone size={18} className="text-saffron" />
                 <h2 className="text-base font-bold text-white">
-                  Email Magic Link
+                  Phone ने Login करा
                 </h2>
               </div>
               <p className="text-xs text-gray-400 mb-4">
-                तुमच्या Email वर login link पाठवला जाईल
+                तुमच्या मोबाईल नंबरवर OTP पाठवला जाईल
               </p>
 
-              <div className="relative mb-4">
-                <Mail
-                  size={16}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
-                />
-                <input
-                  id="magic-email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  placeholder="email@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-dark-bg border border-dark-border rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:border-saffron/40 transition-colors"
-                />
-              </div>
+              {!otpSent ? (
+                <>
+                  <div className="relative mb-4">
+                    <Phone
+                      size={16}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
+                    />
+                    <input
+                      id="phone"
+                      name="phone"
+                      type="tel"
+                      placeholder="+919876543210"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      className="w-full bg-dark-bg border border-dark-border rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:border-saffron/40 transition-colors"
+                    />
+                  </div>
 
-              {error && <p className="text-xs text-red-400 mb-3">{error}</p>}
+                  {error && <p className="text-xs text-red-400 mb-3">{error}</p>}
 
-              <button
-                onClick={handleMagicLink}
-                disabled={loading || !email.trim()}
-                className="w-full btn-primary text-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loading ? (
-                  <Loader2 size={16} className="animate-spin" />
-                ) : (
-                  <>Magic Link पाठवा →</>
-                )}
-              </button>
+                  <button
+                    onClick={handleSendOtp}
+                    disabled={loading || phone.length < 10}
+                    className="w-full btn-primary text-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loading ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      <>OTP पाठवा →</>
+                    )}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="relative mb-4">
+                    <Lock
+                      size={16}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
+                    />
+                    <input
+                      id="otp"
+                      name="otp"
+                      type="text"
+                      maxLength={6}
+                      placeholder="6-Digit OTP"
+                      value={otp}
+                      onChange={(e) => setOtp(e.target.value)}
+                      className="w-full bg-dark-bg border border-dark-border rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:border-saffron/40 transition-colors tracking-widest text-center"
+                    />
+                  </div>
+
+                  {error && <p className="text-xs text-red-400 mb-3">{error}</p>}
+
+                  <button
+                    onClick={handleVerifyOtp}
+                    disabled={loading || otp.length !== 6}
+                    className="w-full btn-primary text-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loading ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      <>OTP Verify करा →</>
+                    )}
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setOtpSent(false);
+                      setOtp("");
+                    }}
+                    className="w-full text-center text-xs text-gray-500 mt-4 hover:text-white transition-colors"
+                  >
+                    नंबर बदला
+                  </button>
+                </>
+              )}
 
               <button
                 onClick={() => {
                   setMode("login");
                   setError("");
                 }}
-                className="w-full text-center text-xs text-gray-500 mt-3 hover:text-saffron transition-colors"
+                className="w-full text-center text-xs text-gray-500 mt-4 hover:text-saffron transition-colors"
               >
                 Email/Password ने Login करा
               </button>
@@ -433,15 +435,6 @@ function LoginContent() {
               {error && (
                 <div className="mb-3">
                   <p className="text-xs text-red-400">{error}</p>
-                  {error === "कृपया तुमचा email confirm करा" && (
-                    <button
-                      type="button"
-                      onClick={handleResendConfirm}
-                      className="text-xs text-saffron hover:underline mt-1 block"
-                    >
-                       पुन्हा confirmation email पाठवा
-                    </button>
-                  )}
                 </div>
               )}
 
@@ -476,12 +469,12 @@ function LoginContent() {
                 </button>
                 <button
                   onClick={() => {
-                    setMode("magic-link");
+                    setMode("phone");
                     setError("");
                   }}
                   className="text-xs text-gray-500 hover:text-saffron transition-colors"
                 >
-                  Magic Link
+                  Phone OTP Login
                 </button>
               </div>
             </>

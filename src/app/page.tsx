@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/components/SupabaseProvider";
+import { useAuth } from "@/components/FirebaseAuthProvider";
 import { useToast } from "@/components/ToastProvider";
 import dynamic from "next/dynamic";
 

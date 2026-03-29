@@ -13,7 +13,7 @@ import {
   Heart,
 } from "lucide-react";
 import Link from "next/link";
-import { useAuth } from "@/components/SupabaseProvider";
+import { useAuth } from "@/components/FirebaseAuthProvider";
 import { useToast } from "@/components/ToastProvider";
 
 interface Question {

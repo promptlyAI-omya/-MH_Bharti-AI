@@ -1,11 +1,6 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
-import { createClient } from "@supabase/supabase-js";
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { sql } from "@/lib/db";
 
 export async function POST(req: Request) {
   try {
@@ -43,45 +38,28 @@ export async function POST(req: Request) {
     const finalAmount = rpData.amount ? rpData.amount / 100 : 0;
 
     // 1. Record the donation in the `donations` table
-    const { error: donationError } = await supabaseAdmin
-      .from("donations")
-      .insert([
-        {
-          user_id: userId,
-          amount: finalAmount,
-          razorpay_payment_id: razorpay_payment_id,
-        }
-      ]);
-
-    if (donationError) {
+    try {
+      await sql`
+        INSERT INTO donations (user_id, amount, razorpay_payment_id)
+        VALUES (${userId}, ${finalAmount}, ${razorpay_payment_id})
+      `;
+    } catch (donationError) {
       console.error("Failed to insert donation record:", donationError);
       return NextResponse.json({ error: "Database error" }, { status: 500 });
     }
 
-    // 2. Fetch current donation total to safely add the new amount
-    const { data: userRecord, error: fetchError } = await supabaseAdmin
-      .from("users")
-      .select("donation_total")
-      .eq("id", userId)
-      .single();
-
-    if (fetchError) {
-      console.error("Error fetching user total:", fetchError);
+    // 2. Fetch current donation total to safely add the new amount, and update
+    try {
+      await sql`
+        UPDATE users 
+        SET is_donor = true, 
+            donation_total = COALESCE(donation_total, 0) + ${finalAmount}
+        WHERE id = ${userId}
+      `;
+    } catch (updateError) {
+      console.error("Failed to update user donation total:", updateError);
       return NextResponse.json({ error: "Database error" }, { status: 500 });
     }
-
-    const newTotal = (userRecord?.donation_total || 0) + finalAmount;
-
-    // 3. Mark the user as a donor and update their total donations
-    const { error: updateError } = await supabaseAdmin
-      .from("users")
-      .update({ 
-        is_donor: true, 
-        donation_total: newTotal
-      })
-      .eq("id", userId);
-
-    if (updateError) throw updateError;
 
     return NextResponse.json({ success: true, amount: finalAmount });
   } catch (error) {

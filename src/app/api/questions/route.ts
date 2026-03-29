@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@/lib/supabase";
+import { sql } from "@/lib/db";
 import Groq from "groq-sdk";
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY || '' });
@@ -30,18 +30,15 @@ export async function GET(request: NextRequest) {
     // ignore parsing errors
   }
 
-  const supabase = createServerClient();
-
-  // Fetch all questions for the topic
-  let query = supabase.from("questions").select("*").eq("exam", exam);
-  if (topic) {
-    query = query.eq("topic", topic);
-  }
-
-  const { data: allQuestions, error } = await query;
-
-  if (error || !allQuestions) {
-    return NextResponse.json({ error: error?.message || "Failed to fetch questions" }, { status: 500 });
+  let allQuestions: any[] /* eslint-disable-line @typescript-eslint/no-explicit-any */ = [];
+  try {
+    if (topic) {
+      allQuestions = await sql`SELECT * FROM questions WHERE exam = ${exam} AND topic = ${topic}`;
+    } else {
+      allQuestions = await sql`SELECT * FROM questions WHERE exam = ${exam}`;
+    }
+  } catch (error: unknown) {
+    return NextResponse.json({ error: (error instanceof Error ? error.message : null) || "Failed to fetch questions" }, { status: 500 });
   }
 
   // --- 1. Get User History ---
@@ -50,19 +47,23 @@ export async function GET(request: NextRequest) {
   const historyMap: Record<string, { last_seen_at: string }> = {};
 
   if (userId) {
-    const { data: history } = await supabase
-      .from("user_question_history")
-      .select("question_id, correct, last_seen_at")
-      .eq("user_id", userId);
+    try {
+      const history = await sql`
+        SELECT question_id, correct, last_seen_at FROM user_question_history
+        WHERE user_id = ${userId}
+      `;
 
-    if (history) {
-      history.forEach((h) => {
-        seenIds.push(h.question_id);
-        historyMap[h.question_id] = h;
-        if (!h.correct) {
-          wrongIds.push(h.question_id);
-        }
-      });
+      if (history) {
+        history.forEach((h: any /* eslint-disable-line @typescript-eslint/no-explicit-any */) => {
+          seenIds.push(h.question_id);
+          historyMap[h.question_id] = h;
+          if (!h.correct) {
+            wrongIds.push(h.question_id);
+          }
+        });
+      }
+    } catch (e) {
+      console.error("Failed history DB fetch", e);
     }
   } else if (guestSeenIds.length > 0) {
     seenIds = guestSeenIds;

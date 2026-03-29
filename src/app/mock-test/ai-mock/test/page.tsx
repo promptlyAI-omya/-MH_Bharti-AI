@@ -14,7 +14,7 @@ import {
   Heart,
 } from "lucide-react";
 import Link from "next/link";
-import { useAuth } from "@/components/SupabaseProvider";
+import { useAuth } from "@/components/FirebaseAuthProvider";
 import { useToast } from "@/components/ToastProvider";
 
 interface Question {
@@ -31,7 +31,7 @@ interface Question {
 function AIMockTestPlayerContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, profile, refreshProfile } = useAuth();
+  const { user, profile, refreshProfile, updateProfile } = useAuth();
   const { toast } = useToast();
 
   const subjectsParam = searchParams.get("subjects") || "";
@@ -125,12 +125,18 @@ function AIMockTestPlayerContent() {
     if (!creditDeducted[currentIndex] && user) {
       setCreditDeducted((prev) => ({ ...prev, [currentIndex]: true }));
       try {
-        await fetch("/api/deduct-credit", {
+        const res = await fetch("/api/deduct-credit", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ userId: user.id }),
         });
-        refreshProfile();
+
+        const data = await res.json();
+        if (res.ok && typeof data.remaining === "number") {
+          updateProfile({ ai_credits: data.remaining });
+        } else {
+          await refreshProfile();
+        }
       } catch {
         // Silently continue
       }

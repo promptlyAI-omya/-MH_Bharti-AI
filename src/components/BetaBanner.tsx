@@ -45,7 +45,7 @@ export default function BetaBanner() {
         {/* Header Ribbon */}
         <div className="bg-saffron/10 px-5 py-4 border-b border-saffron/20 flex items-center justify-center gap-2">
           <Rocket size={20} className="text-saffron" />
-          <h2 className="text-white font-bold tracking-wide">Beta Version 1.0</h2>
+          <h2 className="text-white font-bold tracking-wide">Beta Version 1.2</h2>
         </div>
 
         {/* Content Body */}

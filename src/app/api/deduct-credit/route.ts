@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@/lib/supabase";
+import { sql } from "@/lib/db";
 
 export async function POST(req: NextRequest) {
   try {
@@ -9,38 +9,28 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "userId required" }, { status: 400 });
     }
 
-    const supabase = createServerClient();
+    const updatedRows = await sql`
+      UPDATE users
+      SET ai_credits = ai_credits - 1
+      WHERE id = ${userId} AND ai_credits > 0
+      RETURNING ai_credits
+    `;
 
-    // Get current credits
-    const { data: userData, error: userError } = await supabase
-      .from("users")
-      .select("ai_credits")
-      .eq("id", userId)
-      .single();
+    if (updatedRows.length === 0) {
+      const users = await sql`SELECT ai_credits FROM users WHERE id = ${userId}`;
+      const userData = users[0];
 
-    if (userError || !userData) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
-    }
+      if (!userData) {
+        return NextResponse.json({ error: "User not found" }, { status: 404 });
+      }
 
-    if (userData.ai_credits <= 0) {
       return NextResponse.json(
         { error: "No AI credits remaining", remaining: 0 },
         { status: 403 }
       );
     }
 
-    // Deduct exactly 1 credit
-    const newCredits = userData.ai_credits - 1;
-
-    const { error: updateError } = await supabase
-      .from("users")
-      .update({ ai_credits: newCredits })
-      .eq("id", userId);
-
-    if (updateError) {
-      console.error("Failed to deduct credit:", updateError);
-      return NextResponse.json({ error: "Failed to deduct credit" }, { status: 500 });
-    }
+    const newCredits = updatedRows[0].ai_credits;
 
     return NextResponse.json({
       success: true,

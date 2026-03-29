@@ -13,7 +13,7 @@ import {
   Zap,
 } from "lucide-react";
 import Link from "next/link";
-import { useAuth } from "@/components/SupabaseProvider";
+import { useAuth } from "@/components/FirebaseAuthProvider";
 
 interface Message {
   id: string;
@@ -43,7 +43,7 @@ export default function AiChatPage() {
 
 function AiChatContent() {
   const searchParams = useSearchParams();
-  const { user, profile, refreshProfile } = useAuth();
+  const { user, profile, refreshProfile, updateProfile } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -129,8 +129,9 @@ function AiChatContent() {
         setMessages((prev) => [...prev, errorMsg]);
       }
 
-      // Refresh profile to get updated credits
-      if (user) {
+      if (typeof data.remaining === "number") {
+        updateProfile({ ai_credits: data.remaining });
+      } else if (user) {
         await refreshProfile();
       }
     } catch {

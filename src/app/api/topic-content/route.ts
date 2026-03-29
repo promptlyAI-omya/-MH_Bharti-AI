@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@/lib/supabase";
+import { sql } from "@/lib/db";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -10,22 +10,23 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Exam and topic required" }, { status: 400 });
   }
 
-  const supabase = createServerClient();
+  try {
+    const rows = await sql`
+      SELECT * FROM topic_content 
+      WHERE exam = ${exam} AND topic_name = ${topic}
+      LIMIT 1
+    `;
 
-  const { data, error } = await supabase
-    .from("topic_content")
-    .select("*")
-    .eq("exam", exam)
-    .eq("topic_name", topic)
-    .single();
+    const data = rows.length > 0 ? rows[0] : null;
 
-  if (error) {
-    if (error.code === 'PGRST116') {
+    if (!data) {
       // 0 rows returned - perfectly valid, just no content available
       return NextResponse.json({ data: null }, { status: 200 });
     }
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
 
-  return NextResponse.json({ data });
+    return NextResponse.json({ data });
+  } catch (error: unknown) {
+    console.error("Topic content error:", error);
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Unknown error" }, { status: 500 });
+  }
 }

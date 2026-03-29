@@ -13,7 +13,7 @@ import {
   ChevronRight,
   Loader2,
 } from "lucide-react";
-import { useAuth } from "@/components/SupabaseProvider";
+import { useAuth } from "@/components/FirebaseAuthProvider";
 import Link from "next/link";
 
 interface StatsData {

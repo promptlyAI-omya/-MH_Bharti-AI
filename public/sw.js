@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mh-bharti-v1';
+const CACHE_NAME = 'mh-bharti-v3';
 const OFFLINE_URL = '/offline.html';
 
 // App shell files to pre-cache
@@ -32,7 +32,7 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch: network-first for navigations, cache-first for static assets
+// Fetch: network-first for navigations, cache-first only for a tiny offline shell
 self.addEventListener('fetch', (event) => {
   const { request } = event;
 
@@ -59,12 +59,11 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Static assets (_next/static, icons, etc.): cache-first
-  if (
-    url.pathname.startsWith('/_next/static/') ||
-    url.pathname.startsWith('/icons/') ||
-    url.pathname === '/manifest.json'
-  ) {
+  // Never cache Next.js build assets here. In dev this causes stale chunk/runtime mismatches.
+  if (url.pathname.startsWith('/_next/')) return;
+
+  // Small immutable assets: cache-first
+  if (url.pathname.startsWith('/icons/') || url.pathname === '/manifest.json') {
     event.respondWith(
       caches.match(request).then(
         (cached) =>

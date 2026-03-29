@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@/lib/supabase";
+import { sql } from "@/lib/db";
 
 export async function DELETE(request: NextRequest) {
   try {
@@ -13,17 +13,7 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    const supabase = createServerClient();
-
-    const { error } = await supabase
-      .from("user_question_history")
-      .delete()
-      .eq("user_id", userId);
-
-    if (error) {
-        console.error("Reset history error:", error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
-    }
+    await sql`DELETE FROM user_question_history WHERE user_id = ${userId}`;
 
     return NextResponse.json({ success: true });
   } catch (error) {

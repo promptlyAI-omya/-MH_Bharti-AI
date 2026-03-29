@@ -1,10 +1,60 @@
 import { NextRequest, NextResponse } from "next/server";
 import Groq from "groq-sdk";
-import { createServerClient } from "@/lib/supabase";
+import { sql } from "@/lib/db";
 
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
 });
+
+async function persistQuestion(
+  question: Record<string, unknown>,
+  defaults: { exam: string; topic: string; difficulty: string }
+) {
+  try {
+    await sql`
+      INSERT INTO questions (
+        exam, topic, question_marathi, options, correct_answer, 
+        explanation_marathi, trick_used, difficulty, is_ai_variation, svg_visual
+      ) VALUES (
+        ${String(question.exam || defaults.exam)},
+        ${String(question.topic || defaults.topic)},
+        ${String(question.question_marathi || "")},
+        ${question.options as Record<string, string>},
+        ${String(question.correct_answer || "")},
+        ${String(question.explanation_marathi || "")},
+        ${question.trick_used ? String(question.trick_used) : null},
+        ${String(question.difficulty || defaults.difficulty)},
+        true,
+        ${question.svg_visual ? String(question.svg_visual) : null}
+      )
+    `;
+  } catch (insertError: unknown) {
+    const message = insertError instanceof Error ? insertError.message : String(insertError);
+    const isSchemaMismatch =
+      message.includes('column "trick_used"') ||
+      message.includes('column "svg_visual"');
+
+    if (!isSchemaMismatch) {
+      throw insertError;
+    }
+
+    await sql`
+      INSERT INTO questions (
+        exam, topic, question_marathi, options, correct_answer, 
+        explanation_marathi, difficulty, is_ai_variation
+      ) VALUES (
+        ${String(question.exam || defaults.exam)},
+        ${String(question.topic || defaults.topic)},
+        ${String(question.question_marathi || "")},
+        ${question.options as Record<string, string>},
+        ${String(question.correct_answer || "")},
+        ${String(question.explanation_marathi || "")},
+        ${String(question.difficulty || defaults.difficulty)},
+        true
+      )
+    `;
+  }
+}
 
 function shuffleAndPick<T>(array: T[], count: number): T[] {
   const shuffled = [...array].sort(() => 0.5 - Math.random());
@@ -43,16 +93,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Topic and userId required" }, { status: 400 });
     }
 
-    const supabase = createServerClient();
-
     // 0. Verify user has enough AI credits
-    const { data: userData, error: userError } = await supabase
-      .from("users")
-      .select("ai_credits")
-      .eq("id", userId)
-      .single();
+    const users = await sql`SELECT ai_credits FROM users WHERE id = ${userId}`;
+    const userData = users?.length > 0 ? users[0] : null;
 
-    if (userError || !userData) {
+    if (!userData) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
@@ -64,15 +109,14 @@ export async function POST(req: NextRequest) {
     const finalCount = Math.min(count, userData.ai_credits);
     
     // 1. Check existing questions in the database for this topic
-    const { data: dbQuestions, error: dbError } = await supabase
-      .from("questions")
-      .select("*")
-      .eq("topic", topic)
-      .eq("exam", examType)
-      .eq("difficulty", difficulty);
-
-    if (dbError) {
-       console.error("Database query error:", dbError);
+    let dbQuestions: any[] /* eslint-disable-line @typescript-eslint/no-explicit-any */ = [];
+    try {
+      dbQuestions = await sql`
+        SELECT * FROM questions 
+        WHERE topic = ${topic} AND exam = ${examType} AND difficulty = ${difficulty}
+      `;
+    } catch (e: unknown) {
+       console.error("Database query error:", e);
     }
 
     const existingCount = dbQuestions ? dbQuestions.length : 0;
@@ -81,7 +125,7 @@ export async function POST(req: NextRequest) {
     // If we have >= 1000 questions in DB, mix DB + newly generated.
     // If not, generate all requested count entirely new via AI.
     let generateCount = finalCount;
-    let fallbackQuestions = [];
+    let fallbackQuestions: any[] /* eslint-disable-line @typescript-eslint/no-explicit-any */ = [];
 
     if (existingCount >= 1000 && dbQuestions) {
        // Premium users (count<=10): mostly DB + 2 AI
@@ -196,23 +240,16 @@ export async function POST(req: NextRequest) {
 
     // 3. Store the globally generated questions PERMANENTLY into the database table
     if (generatedQuestions.length > 0) {
-      // Map correctly to ensure no missing values before insert
-       const toInsert = generatedQuestions.map(q => ({
-          exam: q.exam || examType,
-          topic: q.topic || topic,
-          question_marathi: q.question_marathi,
-          options: q.options,
-          correct_answer: q.correct_answer,
-          explanation_marathi: q.explanation_marathi,
-          trick_used: q.trick_used,
-          difficulty: q.difficulty || difficulty,
-          is_ai_variation: true,
-          svg_visual: q.svg_visual || null,
-       }));
-       
-       const { error: insertError } = await supabase.from("questions").insert(toInsert);
-       if (insertError) {
-          console.error("Failed to insert generated questions to DB:", insertError);
+       for (const q of generatedQuestions) {
+         try {
+           await persistQuestion(q as Record<string, unknown>, {
+             exam: examType,
+             topic,
+             difficulty,
+           });
+         } catch (insertError: unknown) {
+           console.error("Failed to insert generated questions to DB:", insertError);
+         }
        }
     }
 

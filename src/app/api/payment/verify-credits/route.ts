@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
-import { createServerClient } from "@/lib/supabase";
+import { sql } from "@/lib/db";
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,33 +17,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid payment signature" }, { status: 400 });
     }
 
-    const supabase = createServerClient();
+    // 2. Add 111 credits
+    try {
+      // First fetch to know the new total exactly for the response (or we can just DO UPDATE RETURNING)
+      const users = await sql`
+        UPDATE users 
+        SET ai_credits = COALESCE(ai_credits, 0) + 111 
+        WHERE id = ${userId}
+        RETURNING ai_credits
+      `;
+      
+      const newCredits = users[0]?.ai_credits || 111;
 
-    // 2. Fetch current credits
-    const { data: userData, error: fetchError } = await supabase
-      .from("users")
-      .select("ai_credits")
-      .eq("id", userId)
-      .single();
-
-    if (fetchError || !userData) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
-    }
-
-    // 3. Add 111 credits
-    const newCredits = (userData.ai_credits || 0) + 111;
-
-    const { error: updateError } = await supabase
-      .from("users")
-      .update({ ai_credits: newCredits })
-      .eq("id", userId);
-
-    if (updateError) {
+      return NextResponse.json({ success: true, newCredits });
+    } catch (updateError) {
       console.error("Failed to update AI credits:", updateError);
       return NextResponse.json({ error: "Failed to update credits" }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, newCredits });
   } catch (error) {
     console.error("Payment verification error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

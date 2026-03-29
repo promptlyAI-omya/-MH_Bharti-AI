@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@/lib/supabase";
+import { sql } from "@/lib/db";
 import crypto from "crypto";
 
 export async function POST(request: NextRequest) {
-  const supabase = createServerClient();
-
   try {
     const keySecret = process.env.RAZORPAY_KEY_SECRET;
     const body = await request.json();
@@ -43,30 +41,27 @@ export async function POST(request: NextRequest) {
     const endDate = new Date(now);
     endDate.setDate(endDate.getDate() + 30);
 
-    const { error: subError } = await supabase.from("subscriptions").insert({
-      user_id,
-      plan: "premium",
-      razorpay_payment_id,
-      razorpay_subscription_id: razorpay_order_id,
-      amount: 9900,
-      start_date: now.toISOString(),
-      end_date: endDate.toISOString(),
-      is_active: true,
-    });
-
-    if (subError) {
+    try {
+      await sql`
+        INSERT INTO subscriptions (
+          user_id, plan, razorpay_payment_id, razorpay_subscription_id, 
+          amount, start_date, end_date, is_active
+        ) VALUES (
+          ${user_id}, 'premium', ${razorpay_payment_id}, ${razorpay_order_id}, 
+          9900, ${now.toISOString()}, ${endDate.toISOString()}, true
+        )
+      `;
+    } catch (subError) {
       console.error("Subscription insert error:", subError);
     }
 
-    const { error: userError } = await supabase
-      .from("users")
-      .update({
-        plan: "premium",
-        ai_credits: 50,
-      })
-      .eq("id", user_id);
-
-    if (userError) {
+    try {
+      await sql`
+        UPDATE users 
+        SET plan = 'premium', ai_credits = 50 
+        WHERE id = ${user_id}
+      `;
+    } catch (userError) {
       console.error("User update error:", userError);
       return NextResponse.json(
         { error: "Payment verified but profile update failed" },

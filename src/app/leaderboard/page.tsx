@@ -2,12 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { Trophy, Medal, User as UserIcon } from "lucide-react";
-import { useAuth } from "@/components/SupabaseProvider";
-import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/components/FirebaseAuthProvider";
 
 interface LeaderboardUser {
   id: string;
-  full_name: string | null;
+  name: string | null;
   phone: string | null;
   points: number;
 }
@@ -21,41 +20,20 @@ export default function LeaderboardPage() {
   useEffect(() => {
     const fetchLeaderboard = async () => {
       try {
-        // Fetch top 10 users by points
-        const { data: topUsers, error } = await supabase
-          .from("users")
-          .select("id, full_name, phone, points")
-          .order("points", { ascending: false })
-          .limit(10);
-
-        if (error) throw error;
-
-        // Note: we consider users with null points as 0 points
-        const sanitizedData = (topUsers || []).map((u: Record<string, unknown>) => ({
-          ...u,
-          points: (u.points as number) || 0
-        })) as LeaderboardUser[];
-
-        setLeaders(sanitizedData);
-
-        // Fetch current user rank mathematically if possible, or just exact points here
-        if (user) {
-          const { data: me } = await supabase
-            .from("users")
-            .select("points")
-            .eq("id", user.id)
-            .single();
-            
-          if (me) {
-            // Get all people with points >= my points to find approx rank
-            const myPoints = me.points || 0;
-            const { count } = await supabase
-              .from("users")
-              .select("*", { count: "exact", head: true })
-              .gte("points", myPoints);
-              
-            setUserRank({ rank: count || 1, points: myPoints });
-          }
+        let url = "/api/users/leaderboard";
+        if (user?.id) {
+          url += `?userId=${user.id}`;
+        }
+        
+        const res = await fetch(url);
+        const data = await res.json();
+        
+        if (data.leaderboard) {
+          setLeaders(data.leaderboard);
+        }
+        
+        if (data.userRank !== undefined && data.userRank !== null) {
+          setUserRank({ rank: data.userRank, points: data.userPoints });
         }
       } catch (err) {
         console.error("Error fetching leaderboard:", err);
@@ -116,7 +94,7 @@ export default function LeaderboardPage() {
                 
                 <div className="flex-1 min-w-0">
                   <p className="font-bold text-white truncate text-sm">
-                    {leader.full_name || leader.phone || "अज्ञात विद्यार्थी"} {isMe && <span className="text-xs text-saffron ml-1">(तू)</span>}
+                    {leader.name || leader.phone || "अज्ञात विद्यार्थी"} {isMe && <span className="text-xs text-saffron ml-1">(तू)</span>}
                   </p>
                 </div>
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useAuth } from "./SupabaseProvider";
+import { useAuth } from "./FirebaseAuthProvider";
 import { Bot, AlertTriangle } from "lucide-react";
 
 export default function GlobalAICredits() {

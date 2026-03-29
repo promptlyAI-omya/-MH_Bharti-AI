@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { ArrowLeft, Loader2, Heart, User } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/components/SupabaseProvider";
+import { useAuth } from "@/components/FirebaseAuthProvider";
 import { useToast } from "@/components/ToastProvider";
 
 const FIXED_AMOUNTS = [

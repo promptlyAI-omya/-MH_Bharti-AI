@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Groq from "groq-sdk";
-import { createServerClient } from "@/lib/supabase";
+import { sql } from "@/lib/db";
 
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
@@ -14,15 +14,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Topic required" }, { status: 400 });
     }
 
-    const supabase = createServerClient();
     const cacheKey = `info_${examType}_${topic}`;
 
     // 1. Check cache first
-    const { data: cached } = await supabase
-      .from("ai_question_cache")
-      .select("*")
-      .eq("cache_key", cacheKey)
-      .single();
+    let cached = null;
+    try {
+      const cacheRows = await sql`SELECT questions FROM ai_question_cache WHERE cache_key = ${cacheKey}`;
+      cached = cacheRows.length > 0 ? cacheRows[0] : null;
+    } catch {}
 
     if (cached?.questions) {
       try {
@@ -84,14 +83,16 @@ export async function POST(req: NextRequest) {
     }
 
     // 3. Cache the generated info
-    await supabase.from("ai_question_cache").upsert(
-      {
-        cache_key: cacheKey,
-        questions: JSON.stringify(generatedInfo),
-        hit_count: 1,
-      },
-      { onConflict: "cache_key" }
-    );
+    try {
+      await sql`
+        INSERT INTO ai_question_cache (cache_key, questions, hit_count)
+        VALUES (${cacheKey}, ${JSON.stringify(generatedInfo)}, 1)
+        ON CONFLICT (cache_key) 
+        DO UPDATE SET questions = EXCLUDED.questions, hit_count = ai_question_cache.hit_count + 1
+      `;
+    } catch (e) {
+      console.error("Cache DB insert error:", e);
+    }
 
     return NextResponse.json({ topicInfo: generatedInfo });
 

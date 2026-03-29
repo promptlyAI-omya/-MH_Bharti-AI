@@ -25,8 +25,8 @@ import {
   Heart,
 } from "lucide-react";
 import { useState, useEffect } from "react";
-import { useAuth } from "@/components/SupabaseProvider";
-import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/components/FirebaseAuthProvider";
+import { logout } from "@/lib/auth";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useToast } from "@/components/ToastProvider";
@@ -61,25 +61,6 @@ export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState<"profile" | "leaderboard">("profile");
   const [leaderboard, setLeaderboard] = useState<{ id: string; name: string; leaderboard_points: number }[]>([]);
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
-  const [attemptedProfileCreation, setAttemptedProfileCreation] = useState(false);
-
-  useEffect(() => {
-    if (user && !profile && !attemptedProfileCreation) {
-      setAttemptedProfileCreation(true);
-      // Fallback: create user profile if the row doesn't exist
-      supabase.from("users").upsert(
-        {
-          id: user.id,
-          name: user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split("@")[0] || null,
-          phone: user.phone || null,
-          plan: "free",
-        },
-        { onConflict: "id", ignoreDuplicates: true }
-      ).then(() => {
-        refreshProfile();
-      });
-    }
-  }, [user, profile, attemptedProfileCreation, refreshProfile]);
 
   useEffect(() => {
     if (activeTab === "leaderboard") {
@@ -90,17 +71,13 @@ export default function ProfilePage() {
   const fetchLeaderboard = async () => {
     setLoadingLeaderboard(true);
     try {
-      const { data, error } = await supabase
-        .from("users")
-        .select("id, name, leaderboard_points")
-        .order("leaderboard_points", { ascending: false, nullsFirst: false })
-        .limit(10);
-      
-      if (!error && data) {
+      const res = await fetch("/api/users/leaderboard");
+      if (res.ok) {
+        const { leaderboard: data } = await res.json();
         setLeaderboard(data);
       }
     } catch (err) {
-      console.error(err);
+      console.error("Leaderboard error:", err);
     }
     setLoadingLeaderboard(false);
   };
@@ -108,7 +85,7 @@ export default function ProfilePage() {
   const handleLogout = async () => {
     setLoggingOut(true);
     try {
-      await supabase.auth.signOut();
+      await logout();
     } catch (err) {
       console.error("Logout Error:", err);
     }
@@ -637,7 +614,7 @@ export default function ProfilePage() {
 
         {/* App Version */}
         <p className="text-center text-[10px] text-gray-600 py-4">
-          MH_Bharti AI v1.0.0 • Made with ❤️ in Maharashtra
+          MH_Bharti AI v1.2.0 • Made with ❤️ in Maharashtra
         </p>
       </div>
       </>

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createServerClient } from "@/lib/supabase";
+import { sql } from "@/lib/db";
 
 export async function GET(request: Request) {
   // Check authorization header for vercel cron
@@ -11,20 +11,12 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const supabase = createServerClient();
-
   try {
     // Reset free users
-    await supabase
-      .from("users")
-      .update({ ai_credits: 10 })
-      .eq("plan", "free");
+    await sql`UPDATE users SET ai_credits = 10 WHERE plan = 'free'`;
 
     // Reset premium users
-    await supabase
-      .from("users")
-      .update({ ai_credits: 50 })
-      .eq("plan", "premium");
+    await sql`UPDATE users SET ai_credits = 50 WHERE plan = 'premium'`;
 
     return NextResponse.json({ success: true, message: "AI Credits reset successfully" });
   } catch (error) {

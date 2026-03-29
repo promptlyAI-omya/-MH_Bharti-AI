@@ -2,7 +2,7 @@
 
 import { MessageSquare } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
-import { useAuth } from "@/components/SupabaseProvider";
+import { useAuth } from "@/components/FirebaseAuthProvider";
 import { useToast } from "@/components/ToastProvider";
 
 export default function StickyAIChatButton() {

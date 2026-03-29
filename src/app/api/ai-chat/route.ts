@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@/lib/supabase";
+import { sql } from "@/lib/db";
 import Groq from "groq-sdk";
 import crypto from "crypto";
 
@@ -10,7 +10,7 @@ function hashQuestion(text: string): string {
 }
 
 function chooseModel(question: string): string {
-  const wordCount = question.split(/\s+/).length;
+  const wordCount = question.split(/\\s+/).length;
   const complexIndicators = [
     "explain", "विश्लेषण", "compare", "तुलना", "difference", "फरक",
     "why", "का", "how", "कसे", "elaborate", "सविस्तर", "detail",
@@ -31,8 +31,6 @@ const SYSTEM_PROMPT = `तुम्ही MH_Bharti AI चे स्मार्
 5. विद्यार्थ्यांना प्रोत्साहन द्या`;
 
 export async function POST(request: NextRequest) {
-  const supabase = createServerClient();
-
   try {
     const body = await request.json();
     const { message, user_id, ctx } = body;
@@ -44,12 +42,10 @@ export async function POST(request: NextRequest) {
     // Check and decrement user credits if logged in
     let remaining: number | null = null;
     let userPlan: string = "free";
+    
     if (user_id) {
-      const { data: user } = await supabase
-        .from("users")
-        .select("ai_credits, plan")
-        .eq("id", user_id)
-        .single();
+      const users = await sql`SELECT ai_credits, plan FROM users WHERE id = ${user_id}`;
+      const user = users.length > 0 ? users[0] : null;
 
       if (user) {
         userPlan = user.plan || "free";
@@ -70,11 +66,15 @@ export async function POST(request: NextRequest) {
 
     // Check cache
     const questionHash = hashQuestion(message);
-    const { data: cached } = await supabase
-      .from("ai_cache")
-      .select("response, model_used, hit_count")
-      .eq("question_hash", questionHash)
-      .single();
+    let cached = null;
+    try {
+      const cacheRows = await sql`
+        SELECT response, model_used, hit_count 
+        FROM ai_cache 
+        WHERE question_hash = ${questionHash}
+      `;
+      cached = cacheRows.length > 0 ? cacheRows[0] : null;
+    } catch {} // Ignore cache failure
 
     let aiResponse: string;
     let model: string;
@@ -86,13 +86,13 @@ export async function POST(request: NextRequest) {
       fromCache = true;
 
       // Update hit count
-      await supabase
-        .from("ai_cache")
-        .update({
-          hit_count: (cached.hit_count || 1) + 1,
-          last_accessed: new Date().toISOString(),
-        })
-        .eq("question_hash", questionHash);
+      try {
+        await sql`
+          UPDATE ai_cache 
+          SET hit_count = COALESCE(hit_count, 1) + 1, last_accessed = NOW()
+          WHERE question_hash = ${questionHash}
+        `;
+      } catch {}
     } else {
       // Call Groq
       model = chooseModel(message);
@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
       
       // Override system prompt if context (ctx) is provided from practice pages
       if (ctx) {
-        activeSystemPrompt = `Tu MH_Bharti AI cha Marathi coach aahes. User ek topic shikto aahe.\n\n${ctx}\n\nExplain khar tar Marathi madhe, simple language madhe, step by step.`;
+        activeSystemPrompt = `Tu MH_Bharti AI cha Marathi coach aahes. User ek topic shikto aahe.\\n\\n${ctx}\\n\\nExplain khar tar Marathi madhe, simple language madhe, step by step.`;
       }
 
       const completion = await groq.chat.completions.create({
@@ -117,46 +117,27 @@ export async function POST(request: NextRequest) {
 
       // Cache response (non-critical, ignore errors)
       try {
-        await supabase
-          .from("ai_cache")
-          .insert({
-            question_hash: questionHash,
-            question_text: message,
-            response: aiResponse,
-            model_used: model,
-          });
+        await sql`
+          INSERT INTO ai_cache (question_hash, question_text, response, model_used)
+          VALUES (${questionHash}, ${message}, ${aiResponse}, ${model})
+        `;
       } catch {
         // Cache insert failure is non-critical
       }
     }
 
-    // Decrement credits (only for free users, premium users have 50 credits/day)
+    // Decrement credits
     if (user_id) {
-      const { data: currentUser } = await supabase
-        .from("users")
-        .select("ai_credits, plan")
-        .eq("id", user_id)
-        .single();
+      try {
+        const currentUserRows = await sql`SELECT ai_credits, plan FROM users WHERE id = ${user_id}`;
+        const currentUser = currentUserRows.length > 0 ? currentUserRows[0] : null;
 
-      if (currentUser) {
-        if (currentUser.plan === "premium") {
-          // Premium users: deduct from their 50 credits
+        if (currentUser) {
           const newCredits = Math.max(0, currentUser.ai_credits - 1);
-          await supabase
-            .from("users")
-            .update({ ai_credits: newCredits })
-            .eq("id", user_id);
-          remaining = newCredits;
-        } else {
-          // Free users: deduct from their 5 credits
-          const newCredits = Math.max(0, currentUser.ai_credits - 1);
-          await supabase
-            .from("users")
-            .update({ ai_credits: newCredits })
-            .eq("id", user_id);
+          await sql`UPDATE users SET ai_credits = ${newCredits} WHERE id = ${user_id}`;
           remaining = newCredits;
         }
-      }
+      } catch {}
     }
 
     return NextResponse.json({

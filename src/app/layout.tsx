@@ -2,27 +2,8 @@ import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import { Noto_Sans_Devanagari, Inter } from "next/font/google";
 import "./globals.css";
-import BottomNav from "@/components/BottomNav";
-import { ThemeProvider } from "@/components/ThemeProvider";
-import { ToastProvider } from "@/components/ToastProvider";
-import SupabaseProvider from "@/components/SupabaseProvider";
-import dynamic from "next/dynamic";
+import ClientProviders from "@/components/ClientProviders";
 
-// ── Lazy-loaded non-critical layout components ──
-const StickyAIChatButton = dynamic(
-  () => import("@/components/StickyAIChatButton"),
-  { ssr: false }
-);
-const GlobalAICredits = dynamic(
-  () => import("@/components/GlobalAICredits"),
-  { ssr: false }
-);
-const BetaBanner = dynamic(
-  () => import("@/components/BetaBanner"),
-  { ssr: false }
-);
-
-// ── Optimized fonts via next/font (non-blocking, auto font-display:swap) ──
 const notoSansDevanagari = Noto_Sans_Devanagari({
   subsets: ["devanagari", "latin"],
   weight: ["400", "500", "600", "700"],
@@ -67,54 +48,33 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const analyticsEnabled = process.env.NODE_ENV === "production";
+
   return (
     <html lang="mr" className={`${notoSansDevanagari.variable} ${inter.variable}`}>
       <head>
         <meta name="google-site-verification" content="ORmPCVlplk1O3K23jK4Fue6Y3vjD3uP5O-NwpceEGRU" />
+        <meta name="mobile-web-app-capable" content="yes" />
         <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
       </head>
       <body className="antialiased text-white light-theme:text-gray-900 transition-colors duration-300">
-        {/* Google Analytics — delayed via lazyOnload for performance */}
-        <Script
-          strategy="lazyOnload"
-          src={'https://www.googletagmanager.com/gtag/js?id=G-1CBHZJRW9T'}
-        />
-        <Script id="google-analytics" strategy="lazyOnload">
-          {`
-            window.dataLayer = window.dataLayer || [];
-            function gtag(){dataLayer.push(arguments);}
-            gtag('js', new Date());
-            gtag('config', 'G-1CBHZJRW9T');
-          `}
-        </Script>
-        {/* Service worker registration */}
-        <Script id="sw-register" strategy="lazyOnload">
-          {`
-            if ('serviceWorker' in navigator) {
-              navigator.serviceWorker.register('/sw.js').catch(function() {});
-            }
-          `}
-        </Script>
-        <ToastProvider>
-          <ThemeProvider>
-            <SupabaseProvider>
-              <GlobalAICredits />
-              
-              {/* Persistent Beta Badge */}
-              <div className="absolute top-4 left-4 z-50 pointer-events-none opacity-80">
-                <div className="bg-saffron text-white text-[10px] font-bold px-2 py-1 rounded-full flex items-center gap-1 shadow-lg shadow-saffron/20">
-                  <span className="text-[10px]">🔧</span> Beta
-                </div>
-              </div>
-
-              <main className="min-h-screen pb-20">{children}</main>
-              
-              <BetaBanner />
-              <StickyAIChatButton />
-              <BottomNav />
-            </SupabaseProvider>
-          </ThemeProvider>
-        </ToastProvider>
+        {analyticsEnabled && (
+          <>
+            <Script
+              strategy="lazyOnload"
+              src="https://www.googletagmanager.com/gtag/js?id=G-1CBHZJRW9T"
+            />
+            <Script id="google-analytics" strategy="lazyOnload">
+              {`
+                window.dataLayer = window.dataLayer || [];
+                function gtag(){dataLayer.push(arguments);}
+                gtag('js', new Date());
+                gtag('config', 'G-1CBHZJRW9T');
+              `}
+            </Script>
+          </>
+        )}
+        <ClientProviders>{children}</ClientProviders>
       </body>
     </html>
   );

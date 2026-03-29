@@ -1,6 +1,6 @@
 "use client";
 
-import { useAuth } from "@/components/SupabaseProvider";
+import { useAuth } from "@/components/FirebaseAuthProvider";
 import Link from "next/link";
 import { LogIn, Sparkles } from "lucide-react";
 
